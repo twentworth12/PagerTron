@@ -50,13 +50,34 @@ function Pagertron() {
           let pagersToRemove = [];
           const updatedPagers = prevPagers.map((pager) => {
             const baseSpeed = 1;
-            const speed = baseSpeed * Math.pow(1.2, level - 1); // Changed from 1.1 to 1.2 for 20% increase
-            let newX = pager.x;
-            let newY = pager.y;
-            if (player.x > pager.x) newX += speed;
-            if (player.x < pager.x) newX -= speed;
-            if (player.y > pager.y) newY += speed;
-            if (player.y < pager.y) newY -= speed;
+            const speed = baseSpeed * Math.pow(1.2, level - 1); // 20% speed increase per level
+
+            // Calculate direction toward the player
+            let dx = player.x - pager.x;
+            let dy = player.y - pager.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Normalize direction and apply speed
+            let moveX = 0;
+            let moveY = 0;
+            if (distance > 0) { // Avoid division by zero
+              moveX = (dx / distance) * speed;
+              moveY = (dy / distance) * speed;
+            }
+
+            // Add random jitter to movement (20% chance to deviate)
+            const jitterChance = Math.random();
+            if (jitterChance < 0.2) { // 20% chance to add jitter
+              const jitterAmount = speed * 0.5; // Jitter is up to 50% of the speed
+              const randomAngle = Math.random() * 2 * Math.PI; // Random angle in radians
+              moveX += Math.cos(randomAngle) * jitterAmount;
+              moveY += Math.sin(randomAngle) * jitterAmount;
+            }
+
+            // Update pager position
+            const newX = pager.x + moveX;
+            const newY = pager.y + moveY;
+
             return { ...pager, x: newX, y: newY };
           }).filter((pager) => {
             const hitByMissile = updatedMissiles.some((missile, missileIndex) => {
