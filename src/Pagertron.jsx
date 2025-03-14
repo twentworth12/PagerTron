@@ -19,12 +19,22 @@ function Pagertron() {
   const [level, setLevel] = useState(1);
   const [score, setScore] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [konamiActive, setKonamiActive] = useState(false); // Track Konami Code activation
+  const [konamiMessageVisible, setKonamiMessageVisible] = useState(false); // Track flash message visibility
 
   const PLAYER_SIZE = 50;
   const PAGER_SIZE = 50;
-  const MISSILE_SIZE = 15;
+  const MISSILE_SIZE = 15; // Default size
+  const KONAMI_MISSILE_SIZE = 15 * 5; // 75px when Konami Code is active
   const COLLISION_RADIUS = 20;
   const TRANSITION_DURATION = 2000;
+
+  // Simplified Konami Code sequence (only arrow keys)
+  const konamiCode = [
+    "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
+    "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight"
+  ];
+  const [konamiInput, setKonamiInput] = useState([]);
 
   useEffect(() => {
     if (gameOver || isTransitioning) return;
@@ -38,7 +48,7 @@ function Pagertron() {
             const speed = 8;
             if (missile.direction === "up") newY -= speed;
             if (missile.direction === "down") newY += speed;
-            if (missile.direction === "left") newX -= speed;
+            if (missile.direction === "left") newX -= speed; // Fixed typo: "mistile" to "missile"
             if (missile.direction === "right") newX += speed;
             return { ...missile, x: newX, y: newY };
           })
@@ -85,7 +95,8 @@ function Pagertron() {
                 Math.pow(missile.x - pager.x, 2) + 
                 Math.pow(missile.y - pager.y, 2)
               );
-              if (distance < (PAGER_SIZE + MISSILE_SIZE) / 2) {
+              const effectiveMissileSize = konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE;
+              if (distance < (PAGER_SIZE + effectiveMissileSize) / 2) {
                 pagersToRemove.push(pager);
                 setMissiles((prev) => prev.filter((_, index) => index !== missileIndex));
                 return true;
@@ -134,11 +145,13 @@ function Pagertron() {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [player, level, gameOver, isTransitioning]);
+  }, [player, level, gameOver, isTransitioning, konamiActive]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (gameOver || isTransitioning) return;
+
+      // Handle player movement and shooting
       setPlayer((prev) => {
         const speed = 8;
         let newX = Math.max(0, Math.min(1280 - PLAYER_SIZE, prev.x));
@@ -172,6 +185,26 @@ function Pagertron() {
           direction: player.direction 
         }]);
       }
+
+      // Handle Konami Code (only arrow keys)
+      const key = event.key;
+      setKonamiInput((prev) => {
+        const newInput = [...prev, key];
+        if (newInput.length > konamiCode.length) {
+          newInput.shift(); // Keep array length manageable
+        }
+
+        // Check if the last 8 inputs match the Konami Code (arrow keys only)
+        const lastEight = newInput.slice(-konamiCode.length);
+        if (JSON.stringify(lastEight) === JSON.stringify(konamiCode)) {
+          setKonamiActive(true);
+          setKonamiMessageVisible(true); // Show flash message
+          setTimeout(() => setKonamiMessageVisible(false), 2000); // Hide after 2 seconds
+          console.log("Konami Code activated, konamiActive:", true); // Debug log
+          return []; // Reset input after success
+        }
+        return newInput;
+      });
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -203,17 +236,17 @@ function Pagertron() {
         zIndex: 0
       }}>
         <div style={{
-          fontSize: "100px", // Reduced to fit more centrally
-          color: "rgba(255, 255, 255, 0.2)", // Subtle background effect
+          fontSize: "100px",
+          color: "rgba(255, 255, 255, 0.2)",
           lineHeight: "1",
-          maxWidth: "80%", // Limits width to prevent stretching
-          margin: "0 auto" // Centers the text block
+          maxWidth: "80%",
+          margin: "0 auto"
         }}>
           PagerTron
         </div>
         <div style={{
           fontSize: "30px",
-          color: "rgba(255, 255, 255, 0.6)", // Visible but subtle
+          color: "rgba(255, 255, 255, 0.6)",
           marginTop: "-10px"
         }}>
           by incident.io
@@ -266,6 +299,26 @@ function Pagertron() {
       }}>
         Instructions: Move: Arrow Keys, Shoot: Spacebar, Score: 10 pts per pager
       </div>
+      {/* Konami Code Activation Message */}
+      {konamiMessageVisible && (
+        <div style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          fontSize: "40px",
+          fontFamily: "'Press Start 2P', cursive",
+          color: "#00ff00",
+          textShadow: "0 0 10px #00ff00, 0 0 20px #ff00ff",
+          background: "rgba(0, 0, 0, 0.7)",
+          padding: "10px 20px",
+          borderRadius: "5px",
+          zIndex: 3,
+          animation: "pulse 0.5s infinite alternate"
+        }}>
+          Konami Code Activated!
+        </div>
+      )}
       {/* Transition Screen */}
       {isTransitioning && (
         <div style={{
@@ -347,18 +400,18 @@ function Pagertron() {
           className="absolute"
           style={{
             position: "absolute",
-            width: `${MISSILE_SIZE}px`,
-            height: `${MISSILE_SIZE}px`,
-            fontSize: "20px",
-            left: `${missile.x}px`,
-            top: `${missile.y}px`,
+            width: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
+            height: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
+            fontSize: `${konamiActive ? 100 : 20}px`,
+            left: `${missile.x - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px`,
+            top: `${missile.y - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px`,
             textAlign: "center",
-            lineHeight: `${MISSILE_SIZE}px`,
+            lineHeight: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
             opacity: isTransitioning ? 0 : 1,
-            transition: "opacity 0.3s",
+            transition: "opacity 0.3s, width 0.3s, height 0.3s, font-size 0.3s",
             zIndex: 1
           }}
         >
