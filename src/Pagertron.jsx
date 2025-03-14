@@ -187,7 +187,7 @@ function Pagertron() {
       position: "relative", 
       margin: "auto", 
       border: "5px solid white",
-      overflow: "hidden" // Prevent text overflow
+      overflow: "hidden"
     }}>
       {/* Background Text Overlay */}
       <div style={{
@@ -196,15 +196,15 @@ function Pagertron() {
         left: "50%",
         transform: "translate(-50%, -50%)",
         fontFamily: "'Press Start 2P', cursive",
-        color: "rgba(255, 255, 255, 0.1)", // Semi-transparent white for subtle effect
         textAlign: "center",
-        pointerEvents: "none", // Prevent interaction with background text
+        pointerEvents: "none",
         opacity: gameOver || isTransitioning ? 0 : 1,
         transition: "opacity 0.5s",
-        zIndex: 0 // Behind all other elements
+        zIndex: 0
       }}>
         <div style={{
           fontSize: "200px",
+          color: "rgba(255, 255, 255, 0.1)", // Keep PagerTron subtle
           textShadow: "4px 4px 10px rgba(0, 0, 0, 0.5)",
           lineHeight: "1"
         }}>
@@ -212,8 +212,9 @@ function Pagertron() {
         </div>
         <div style={{
           fontSize: "40px",
-          textShadow: "2px 2px 5px rgba(0, 0, 0, 0.5)",
-          marginTop: "-20px" // Adjust to align "by incident.io" below
+          color: "rgba(255, 255, 255, 0.5)", // Increased opacity for visibility
+          textShadow: "2px 2px 5px rgba(0, 0, 0, 0.7)", // Stronger shadow for contrast
+          marginTop: "-20px"
         }}>
           by incident.io
         </div>
@@ -229,7 +230,7 @@ function Pagertron() {
         textShadow: "2px 2px 0px #000",
         opacity: isTransitioning ? 0 : 1,
         transition: "opacity 0.3s",
-        zIndex: 1 // Above background
+        zIndex: 1
       }}>
         Score: {score}
       </div>
@@ -244,7 +245,7 @@ function Pagertron() {
         textShadow: "2px 2px 0px #000",
         opacity: isTransitioning ? 0 : 1,
         transition: "opacity 0.3s",
-        zIndex: 1 // Above background
+        zIndex: 1
       }}>
         Level: {level}
       </div>
@@ -261,7 +262,7 @@ function Pagertron() {
         textAlign: "right",
         opacity: isTransitioning ? 0 : 1,
         transition: "opacity 0.3s",
-        zIndex: 1 // Above background
+        zIndex: 1
       }}>
         Instructions: Move: Arrow Keys, Shoot: Spacebar, Score: 10 pts per pager
       </div>
@@ -277,7 +278,7 @@ function Pagertron() {
         textShadow: "4px 4px 0px #000", 
         opacity: gameOver || isTransitioning ? 0 : 1, 
         transition: "opacity 0.5s",
-        zIndex: 1 // Above background
+        zIndex: 1
       }}>
         PagerTron
       </h1>
@@ -295,7 +296,7 @@ function Pagertron() {
           alignItems: "center",
           flexDirection: "column",
           animation: "pulse 0.5s infinite alternate",
-          zIndex: 2 // Above everything
+          zIndex: 2
         }}>
           <div style={{
             fontSize: "64px",
@@ -334,7 +335,7 @@ function Pagertron() {
           top: `${player.y}px`,
           opacity: isTransitioning ? 0 : 1,
           transition: "opacity 0.3s",
-          zIndex: 1 // Above background
+          zIndex: 1
         }}
       >🔥</div>
       {/* Pagers */}
@@ -351,7 +352,7 @@ function Pagertron() {
             top: `${pager.y}px`,
             opacity: isTransitioning ? 0 : 1,
             transition: "opacity 0.3s",
-            zIndex: 1 // Above background
+            zIndex: 1
           }}
         >📟</div>
       ))}
@@ -374,7 +375,7 @@ function Pagertron() {
             alignItems: "center",
             opacity: isTransitioning ? 0 : 1,
             transition: "opacity 0.3s",
-            zIndex: 1 // Above background
+            zIndex: 1
           }}
         >
           <span>🔥❤️</span>
