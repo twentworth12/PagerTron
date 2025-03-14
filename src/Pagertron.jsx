@@ -50,7 +50,7 @@ function Pagertron() {
           let pagersToRemove = [];
           const updatedPagers = prevPagers.map((pager) => {
             const baseSpeed = 1;
-            const speed = baseSpeed * Math.pow(1.1, level - 1);
+            const speed = baseSpeed * Math.pow(1.2, level - 1); // Changed from 1.1 to 1.2 for 20% increase
             let newX = pager.x;
             let newY = pager.y;
             if (player.x > pager.x) newX += speed;
@@ -66,7 +66,6 @@ function Pagertron() {
               );
               if (distance < (PAGER_SIZE + MISSILE_SIZE) / 2) {
                 pagersToRemove.push(pager);
-                // Remove the missile that hit the pager
                 setMissiles((prev) => prev.filter((_, index) => index !== missileIndex));
                 return true;
               }
