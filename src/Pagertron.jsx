@@ -203,18 +203,18 @@ function Pagertron() {
         zIndex: 0
       }}>
         <div style={{
-          fontSize: "200px",
-          color: "rgba(255, 255, 255, 0.1)", // Keep PagerTron subtle
-          textShadow: "4px 4px 10px rgba(0, 0, 0, 0.5)",
-          lineHeight: "1"
+          fontSize: "100px", // Reduced to fit more centrally
+          color: "rgba(255, 255, 255, 0.2)", // Subtle background effect
+          lineHeight: "1",
+          maxWidth: "80%", // Limits width to prevent stretching
+          margin: "0 auto" // Centers the text block
         }}>
           PagerTron
         </div>
         <div style={{
-          fontSize: "40px",
-          color: "rgba(255, 255, 255, 0.5)", // Increased opacity for visibility
-          textShadow: "2px 2px 5px rgba(0, 0, 0, 0.7)", // Stronger shadow for contrast
-          marginTop: "-20px"
+          fontSize: "30px",
+          color: "rgba(255, 255, 255, 0.6)", // Visible but subtle
+          marginTop: "-10px"
         }}>
           by incident.io
         </div>
@@ -266,22 +266,6 @@ function Pagertron() {
       }}>
         Instructions: Move: Arrow Keys, Shoot: Spacebar, Score: 10 pts per pager
       </div>
-      {/* Title */}
-      <h1 style={{ 
-        position: "absolute", 
-        top: "50%", 
-        left: "50%", 
-        transform: "translate(-50%, -50%)", 
-        fontSize: "96px", 
-        fontFamily: "'Press Start 2P', cursive", 
-        color: "white",
-        textShadow: "4px 4px 0px #000", 
-        opacity: gameOver || isTransitioning ? 0 : 1, 
-        transition: "opacity 0.5s",
-        zIndex: 1
-      }}>
-        PagerTron
-      </h1>
       {/* Transition Screen */}
       {isTransitioning && (
         <div style={{
