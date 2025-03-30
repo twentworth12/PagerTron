@@ -12,7 +12,7 @@ function PagerTron() {
   const TRANSITION_DURATION = 2000;
   const SAFE_DISTANCE = 200; // Minimum distance from (640,360)
 
-  // Helper: Generate random pager positions that are at least SAFE_DISTANCE away from (640,360)
+  // Helper: Generate random pager positions at least SAFE_DISTANCE from (640,360)
   function generateRandomPagers(count) {
     const positions = [];
     for (let i = 0; i < count; i++) {
@@ -26,7 +26,38 @@ function PagerTron() {
     return positions;
   }
 
-  // State variables
+  // Mobile device detection (phone, not tablet)
+  const isMobile = /Mobi|Android.*Mobile/.test(navigator.userAgent);
+  if (isMobile) {
+    return (
+      <div style={{
+        backgroundColor: "#F25533",
+        width: `${SCREEN_WIDTH}px`,
+        height: `${SCREEN_HEIGHT}px`,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        textAlign: "center",
+        color: "white",
+        fontFamily: "'Press Start 2P', cursive",
+        border: "5px solid white",
+        overflow: "hidden",
+        padding: "20px"
+      }}>
+        <div style={{
+          fontSize: "48px",
+          color: "rgba(255, 255, 255, 0.2)",
+          lineHeight: "1",
+          maxWidth: "80%",
+          margin: "20px auto 0"
+        }}>
+          Coming Soon 👀
+        </div>
+      </div>
+    );
+  }
+
+  // Regular game state variables
   const [pagers, setPagers] = useState(generateRandomPagers(7));
   const [gameStarted, setGameStarted] = useState(false);
   const [player, setPlayer] = useState({ x: 640, y: 360, direction: "up" });
@@ -38,11 +69,9 @@ function PagerTron() {
   const [konamiActive, setKonamiActive] = useState(false);
   const [konamiMessageVisible, setKonamiMessageVisible] = useState(false);
 
-  // Finale effect state: when true, the logo and missile effect is active.
+  // Finale effect state
   const [finaleActive, setFinaleActive] = useState(false);
-  // finalComplete becomes true after a 5-second delay once finaleActive is triggered.
   const [finalComplete, setFinalComplete] = useState(false);
-  // Final missiles for the effect.
   const [finalMissiles, setFinalMissiles] = useState([]);
 
   const konamiCode = [
@@ -67,12 +96,11 @@ function PagerTron() {
             if (missile.direction === "right") newX += speed;
             return { ...missile, x: newX, y: newY };
           })
-          .filter(
-            missile =>
-              missile.y > 0 &&
-              missile.y < SCREEN_HEIGHT &&
-              missile.x > 0 &&
-              missile.x < SCREEN_WIDTH
+          .filter(missile =>
+            missile.y > 0 &&
+            missile.y < SCREEN_HEIGHT &&
+            missile.x > 0 &&
+            missile.x < SCREEN_WIDTH
           );
 
       setPagers(prevPagers => {
@@ -110,11 +138,9 @@ function PagerTron() {
             });
             return !hitByMissile;
           });
-
         if (pagersToRemove.length > 0) {
           setScore(prevScore => prevScore + pagersToRemove.length * 10);
         }
-
         const playerHit = updatedPagers.some(pager => {
           const distance = Math.sqrt(
             Math.pow(player.x + PLAYER_SIZE / 2 - (pager.x + PAGER_SIZE / 2), 2) +
@@ -125,12 +151,10 @@ function PagerTron() {
           }
           return distance < COLLISION_RADIUS;
         });
-
         if (playerHit && !gameOver) {
           console.log("Player hit by pager!");
           setGameOver(true);
         }
-
         if (updatedPagers.length === 0) {
           setIsTransitioning(true);
           setTimeout(() => {
@@ -151,9 +175,7 @@ function PagerTron() {
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (!gameStarted) {
-        if (event.key === " ") {
-          setGameStarted(true);
-        }
+        if (event.key === " ") setGameStarted(true);
         return;
       }
       if (gameOver || isTransitioning) return;
@@ -177,7 +199,7 @@ function PagerTron() {
       const key = event.key;
       setKonamiInput(prev => {
         const newInput = [...prev, key];
-        if (newInput.length > konamiCode.length) { newInput.shift(); }
+        if (newInput.length > konamiCode.length) newInput.shift();
         const lastEight = newInput.slice(-konamiCode.length);
         if (JSON.stringify(lastEight) === JSON.stringify(konamiCode)) {
           setKonamiActive(true);
@@ -196,7 +218,7 @@ function PagerTron() {
   // When the player dies, wait 3 seconds then trigger the finale effect.
   useEffect(() => {
     if (gameOver) {
-      const timer = setTimeout(() => { setFinaleActive(true); }, 3000);
+      const timer = setTimeout(() => setFinaleActive(true), 3000);
       return () => clearTimeout(timer);
     }
   }, [gameOver]);
@@ -249,7 +271,7 @@ function PagerTron() {
       const timer = setTimeout(() => {
         setFinaleActive(false);
         setFinalComplete(true);
-      }, 5000); // 5-second delay
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [gameOver, finaleActive]);
@@ -279,17 +301,16 @@ function PagerTron() {
         />
         <div style={{
           fontSize: "48px",
-          color: "rgba(255, 255, 255, 0.2)",
           lineHeight: "1",
           maxWidth: "80%",
           margin: "20px auto 0"
         }}>
-          Move fast when you break things
+          Move fast when you break things.
         </div>
-        <div style={{ fontSize: "32px", marginTop: "10px", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: "32px", marginTop: "10px" }}>
           all-in-one incident management
         </div>
-        <div style={{ fontSize: "32px", marginTop: "10px", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: "32px", marginTop: "10px" }}>
           <a 
             href="https://incident.io" 
             target="_blank" 
