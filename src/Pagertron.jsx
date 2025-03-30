@@ -21,6 +21,7 @@ function Pagertron() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [konamiActive, setKonamiActive] = useState(false); // Track Konami Code activation
   const [konamiMessageVisible, setKonamiMessageVisible] = useState(false); // Track flash message visibility
+  const [gameStarted, setGameStarted] = useState(false); // Track if the game has started
 
   const PLAYER_SIZE = 50;
   const PAGER_SIZE = 50;
@@ -37,7 +38,7 @@ function Pagertron() {
   const [konamiInput, setKonamiInput] = useState([]);
 
   useEffect(() => {
-    if (gameOver || isTransitioning) return;
+    if (!gameStarted || gameOver || isTransitioning) return;
 
     const gameLoop = setInterval(() => {
       setMissiles((prevMissiles) => {
@@ -48,7 +49,7 @@ function Pagertron() {
             const speed = 8;
             if (missile.direction === "up") newY -= speed;
             if (missile.direction === "down") newY += speed;
-            if (missile.direction === "left") newX -= speed; // Fixed typo: "mistile" to "missile"
+            if (missile.direction === "left") newX -= speed;
             if (missile.direction === "right") newX += speed;
             return { ...missile, x: newX, y: newY };
           })
@@ -145,11 +146,17 @@ function Pagertron() {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [player, level, gameOver, isTransitioning, konamiActive]);
+  }, [player, level, gameOver, isTransitioning, konamiActive, gameStarted]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (gameOver || isTransitioning) return;
+      // Start the game on spacebar press if not started
+      if (!gameStarted && event.key === " ") {
+        setGameStarted(true);
+        return;
+      }
+
+      if (!gameStarted || gameOver || isTransitioning) return;
 
       // Handle player movement and shooting
       setPlayer((prev) => {
@@ -209,7 +216,7 @@ function Pagertron() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [player, gameOver, isTransitioning]);
+  }, [player, gameOver, isTransitioning, gameStarted]);
 
   return (
     <div style={{ 
@@ -222,204 +229,14 @@ function Pagertron() {
       border: "5px solid white",
       overflow: "hidden"
     }}>
-      {/* Background Text Overlay */}
-      <div style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        fontFamily: "'Press Start 2P', cursive",
-        textAlign: "center",
-        pointerEvents: "none",
-        opacity: gameOver || isTransitioning ? 0 : 1,
-        transition: "opacity 0.5s",
-        zIndex: 0
-      }}>
-        <div style={{
-          fontSize: "100px",
-          color: "rgba(255, 255, 255, 0.2)",
-          lineHeight: "1",
-          maxWidth: "80%",
-          margin: "0 auto"
-        }}>
-          PagerTron
-        </div>
-        <div style={{
-          fontSize: "30px",
-          color: "rgba(255, 255, 255, 0.6)",
-          marginTop: "-10px"
-        }}>
-          by incident.io
-        </div>
-      </div>
-      {/* Score Counter */}
-      <div style={{ 
-        position: "absolute", 
-        top: "10px", 
-        left: "10px", 
-        fontSize: "24px", 
-        fontFamily: "'Press Start 2P', cursive", 
-        color: "white",
-        textShadow: "2px 2px 0px #000",
-        opacity: isTransitioning ? 0 : 1,
-        transition: "opacity 0.3s",
-        zIndex: 1
-      }}>
-        Score: {score}
-      </div>
-      {/* Level Counter */}
-      <div style={{ 
-        position: "absolute", 
-        top: "10px", 
-        right: "10px", 
-        fontSize: "24px", 
-        fontFamily: "'Press Start 2P', cursive", 
-        color: "white",
-        textShadow: "2px 2px 0px #000",
-        opacity: isTransitioning ? 0 : 1,
-        transition: "opacity 0.3s",
-        zIndex: 1
-      }}>
-        Level: {level}
-      </div>
-      {/* Instructions */}
-      <div style={{ 
-        position: "absolute", 
-        bottom: "10px", 
-        right: "10px", 
-        fontSize: "16px", 
-        fontFamily: "'Press Start 2P', cursive", 
-        color: "white",
-        textShadow: "1px 1px 0px #000",
-        maxWidth: "300px",
-        textAlign: "right",
-        opacity: isTransitioning ? 0 : 1,
-        transition: "opacity 0.3s",
-        zIndex: 1
-      }}>
-        Instructions: Move: Arrow Keys, Shoot: Spacebar, Score: 10 pts per pager
-      </div>
-      {/* Konami Code Activation Message */}
-      {konamiMessageVisible && (
+      {/* Initial Screen */}
+      {!gameStarted && (
         <div style={{
           position: "absolute",
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          fontSize: "40px",
           fontFamily: "'Press Start 2P', cursive",
-          color: "#00ff00",
-          textShadow: "0 0 10px #00ff00, 0 0 20px #ff00ff",
-          background: "rgba(0, 0, 0, 0.7)",
-          padding: "10px 20px",
-          borderRadius: "5px",
-          zIndex: 3,
-          animation: "pulse 0.5s infinite alternate"
-        }}>
-          Konami Code Activated!
-        </div>
-      )}
-      {/* Transition Screen */}
-      {isTransitioning && (
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          background: "radial-gradient(circle, #ff00ff 0%, #00ffff 100%)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-          animation: "pulse 0.5s infinite alternate",
-          zIndex: 2
-        }}>
-          <div style={{
-            fontSize: "64px",
-            fontFamily: "'Press Start 2P', cursive",
-            color: "#00ff00",
-            textShadow: "0 0 10px #00ff00, 0 0 20px #ff00ff, 0 0 30px #ff00ff",
-          }}>
-            Level {level + 1}
-          </div>
-          <div style={{
-            fontSize: "24px",
-            fontFamily: "'Press Start 2P', cursive",
-            color: "#ffffff",
-            textShadow: "0 0 5px #ffffff",
-            marginTop: "20px"
-          }}>
-            Get Ready!
-          </div>
-        </div>
-      )}
-      {/* Game Over Screen */}
-      {gameOver && (
-        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", fontSize: "64px", fontFamily: "'Press Start 2P', cursive", zIndex: 2 }}>
-          Game Over
-        </div>
-      )}
-      {/* Player */}
-      <div
-        className="absolute w-12 h-12"
-        style={{ 
-          position: "absolute", 
-          width: `${PLAYER_SIZE}px`, 
-          height: `${PLAYER_SIZE}px`, 
-          fontSize: "40px", 
-          left: `${player.x}px`, 
-          top: `${player.y}px`,
-          opacity: isTransitioning ? 0 : 1,
-          transition: "opacity 0.3s",
-          zIndex: 1
-        }}
-      >🔥</div>
-      {/* Pagers */}
-      {pagers.map((pager, index) => (
-        <div
-          key={index}
-          className="absolute w-12 h-12"
-          style={{ 
-            position: "absolute", 
-            width: `${PAGER_SIZE}px`, 
-            height: `${PAGER_SIZE}px`, 
-            fontSize: "40px", 
-            left: `${pager.x}px`, 
-            top: `${pager.y}px`,
-            opacity: isTransitioning ? 0 : 1,
-            transition: "opacity 0.3s",
-            zIndex: 1
-          }}
-        >📟</div>
-      ))}
-      {/* Missiles */}
-      {missiles.map((missile, index) => (
-        <div
-          key={index}
-          className="absolute"
-          style={{
-            position: "absolute",
-            width: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
-            height: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
-            fontSize: `${konamiActive ? 100 : 20}px`,
-            left: `${missile.x - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px`,
-            top: `${missile.y - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px`,
-            textAlign: "center",
-            lineHeight: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            opacity: isTransitioning ? 0 : 1,
-            transition: "opacity 0.3s, width 0.3s, height 0.3s, font-size 0.3s",
-            zIndex: 1
-          }}
-        >
-          <span>🔥❤️</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export default Pagertron;
+          fontSize: "40px",
+          color: "#ffffff",
+          textShadow: "2
