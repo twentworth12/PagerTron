@@ -12,7 +12,7 @@ function PagerTron() {
   const TRANSITION_DURATION = 2000;
   const SAFE_DISTANCE = 200; // Minimum distance from (640,360)
 
-  // Helper: Generate random pager positions at least SAFE_DISTANCE from (640,360)
+  // Helper: Generate random pager positions at least SAFE_DISTANCE away from (640,360)
   function generateRandomPagers(count) {
     const positions = [];
     for (let i = 0; i < count; i++) {
@@ -32,26 +32,24 @@ function PagerTron() {
     return (
       <div style={{
         backgroundColor: "#F25533",
-        width: `${SCREEN_WIDTH}px`,
-        height: `${SCREEN_HEIGHT}px`,
+        width: "100%",
+        height: "100vh",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
         textAlign: "center",
         color: "white",
         fontFamily: "'Press Start 2P', cursive",
-        border: "5px solid white",
-        overflow: "hidden",
         padding: "20px"
       }}>
         <div style={{
           fontSize: "48px",
           color: "rgba(255, 255, 255, 0.2)",
-          lineHeight: "1",
-          maxWidth: "80%",
-          margin: "20px auto 0"
+          lineHeight: "1.2",
+          maxWidth: "90%",
+          margin: "0 auto"
         }}>
-          Coming Soon 👀
+          Coming soon, check it out on your desktop for now
         </div>
       </div>
     );
@@ -71,6 +69,7 @@ function PagerTron() {
 
   // Finale effect state
   const [finaleActive, setFinaleActive] = useState(false);
+  // finalComplete becomes true after a 5-second delay once finaleActive is triggered.
   const [finalComplete, setFinalComplete] = useState(false);
   const [finalMissiles, setFinalMissiles] = useState([]);
 
@@ -96,11 +95,12 @@ function PagerTron() {
             if (missile.direction === "right") newX += speed;
             return { ...missile, x: newX, y: newY };
           })
-          .filter(missile =>
-            missile.y > 0 &&
-            missile.y < SCREEN_HEIGHT &&
-            missile.x > 0 &&
-            missile.x < SCREEN_WIDTH
+          .filter(
+            missile =>
+              missile.y > 0 &&
+              missile.y < SCREEN_HEIGHT &&
+              missile.x > 0 &&
+              missile.x < SCREEN_WIDTH
           );
 
       setPagers(prevPagers => {
@@ -138,9 +138,11 @@ function PagerTron() {
             });
             return !hitByMissile;
           });
+
         if (pagersToRemove.length > 0) {
           setScore(prevScore => prevScore + pagersToRemove.length * 10);
         }
+
         const playerHit = updatedPagers.some(pager => {
           const distance = Math.sqrt(
             Math.pow(player.x + PLAYER_SIZE / 2 - (pager.x + PAGER_SIZE / 2), 2) +
@@ -151,10 +153,12 @@ function PagerTron() {
           }
           return distance < COLLISION_RADIUS;
         });
+
         if (playerHit && !gameOver) {
           console.log("Player hit by pager!");
           setGameOver(true);
         }
+
         if (updatedPagers.length === 0) {
           setIsTransitioning(true);
           setTimeout(() => {
