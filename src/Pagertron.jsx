@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "./supabaseClient";
 import './Pagertron.css';
 
 function PagerTron() {
@@ -81,38 +80,6 @@ function PagerTron() {
     "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight",
   ];
   const [konamiInput, setKonamiInput] = useState([]);
-
-  // Function to update the global high score in Supabase
-  const updateHighScore = async () => {
-    const { data, error } = await supabase
-      .from('global_high_score')
-      .select('score')
-      .eq('id', 1)
-      .single();
-    if (error) {
-      console.error('Error fetching high score:', error);
-      return;
-    }
-    const currentHighScore = data.score;
-    if (score > currentHighScore) {
-      const { data: updateData, error: updateError } = await supabase
-        .from('global_high_score')
-        .update({ score, last_updated: new Date().toISOString() })
-        .eq('id', 1);
-      if (updateError) {
-        console.error('Error updating high score:', updateError);
-      } else {
-        console.log('High score updated!', updateData);
-      }
-    }
-  };
-
-  // When gameOver is true, update the high score.
-  useEffect(() => {
-    if (gameOver) {
-      updateHighScore();
-    }
-  }, [gameOver, score]);
 
   // Main game loop (runs when game is active and not over)
   useEffect(() => {
