@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import './Pagertron.css';
 
 function PagerTron() {
-  // Responsive dimensions state
+  // Use viewport dimensions
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -21,13 +21,13 @@ function PagerTron() {
   const PLAYER_SIZE = 50;
   const PAGER_SIZE = 50;
   const MISSILE_SIZE = 15;
-  const KONAMI_MISSILE_SIZE = 15 * 5; // 75px
+  const KONAMI_MISSILE_SIZE = 75; // 15 * 5
   const COLLISION_RADIUS = 20;
   const TRANSITION_DURATION = 2000;
-  const SAFE_DISTANCE = 200; // Minimum distance from center
+  const SAFE_DISTANCE = 200; // from center
 
   // Helper: Generate random pager positions based on current dimensions,
-  // ensuring each is at least SAFE_DISTANCE away from the center.
+  // ensuring each pager is at least SAFE_DISTANCE from the center.
   function generateRandomPagers(count) {
     const positions = [];
     const centerX = dimensions.width / 2;
@@ -43,8 +43,7 @@ function PagerTron() {
     return positions;
   }
 
-  // Remove any mobile blocking – we want the game to run on mobile.
-  // Detect touch devices.
+  // Determine if device supports touch
   const isTouchDevice = "ontouchstart" in window;
 
   // Game state variables
@@ -70,7 +69,7 @@ function PagerTron() {
 
   const konamiCode = [
     "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
-    "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight"
+    "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight",
   ];
   const [konamiInput, setKonamiInput] = useState([]);
 
@@ -90,12 +89,11 @@ function PagerTron() {
             if (missile.direction === "right") newX += speed;
             return { ...missile, x: newX, y: newY };
           })
-          .filter(
-            missile =>
-              missile.y > 0 &&
-              missile.y < dimensions.height &&
-              missile.x > 0 &&
-              missile.x < dimensions.width
+          .filter(missile =>
+            missile.y > 0 &&
+            missile.y < dimensions.height &&
+            missile.x > 0 &&
+            missile.x < dimensions.width
           );
 
       setPagers(prevPagers => {
@@ -171,7 +169,7 @@ function PagerTron() {
     return () => clearInterval(gameLoop);
   }, [player, level, gameOver, isTransitioning, konamiActive, gameStarted, dimensions]);
 
-  // Keyboard event handler for desktop
+  // Desktop keyboard handler
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (!gameStarted) {
@@ -306,8 +304,8 @@ function PagerTron() {
     return (
       <div style={{
         backgroundColor: "#F25533",
-        width: `${dimensions.width}px`,
-        height: `${dimensions.height}px`,
+        width: "100vw",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -315,7 +313,6 @@ function PagerTron() {
         textAlign: "center",
         color: "white",
         fontFamily: "'Press Start 2P', cursive",
-        border: "5px solid white",
         overflow: "hidden",
         padding: "20px"
       }}>
@@ -349,7 +346,48 @@ function PagerTron() {
     );
   }
 
-  // --- Render Touch Controls (if on a touch device) ---
+  // --- Render Start Screen if game is not started ---
+  if (!gameStarted) {
+    return (
+      <div style={{
+        backgroundColor: "#F25533",
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        textAlign: "center",
+        color: "white",
+        fontFamily: "'Press Start 2P', cursive",
+        overflow: "hidden",
+        padding: "20px"
+      }}>
+        <div style={{
+          fontSize: "32px",
+          marginBottom: "20px"
+        }}>
+          {isTouchDevice ? "Tap to Start" : "Press Spacebar to Start"}
+        </div>
+        <button
+          onClick={() => setGameStarted(true)}
+          style={{
+            fontSize: "24px",
+            padding: "10px 20px",
+            cursor: "pointer",
+            border: "none",
+            backgroundColor: "white",
+            color: "#F25533",
+            fontFamily: "'Press Start 2P', cursive"
+          }}
+        >
+          Start Game
+        </button>
+      </div>
+    );
+  }
+
+  // --- Render Touch Controls Overlay (for touch devices) ---
   const touchControls = isTouchDevice && (
     <>
       <div style={{
@@ -384,11 +422,10 @@ function PagerTron() {
     <div style={{ 
       backgroundColor: "#F25533",
       color: "white",
-      width: `${dimensions.width}px`,
-      height: `${dimensions.height}px`,
+      width: "100vw",
+      height: "100vh",
       position: "relative",
       margin: "auto",
-      border: "5px solid white",
       overflow: "hidden"
     }}>
       {/* Background Text Overlay */}
@@ -422,8 +459,8 @@ function PagerTron() {
         </div>
       </div>
 
-      {/* Press Spacebar / Tap to Start Overlay */}
-      {!gameStarted && !gameOver && (
+      {/* Start Game Overlay (if not started) */}
+      {!gameStarted && (
         <div style={{
           position: "absolute",
           bottom: "20%",
