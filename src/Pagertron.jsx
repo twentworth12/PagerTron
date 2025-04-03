@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import './Pagertron.css';
 
 function PagerTron() {
-  // Use viewport dimensions
+  // Responsive dimensions state
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -18,13 +18,24 @@ function PagerTron() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Lock scrolling on touch devices
+  const isTouchDevice = "ontouchstart" in window;
+  useEffect(() => {
+    if (isTouchDevice) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [isTouchDevice]);
+
   const PLAYER_SIZE = 50;
   const PAGER_SIZE = 50;
   const MISSILE_SIZE = 15;
-  const KONAMI_MISSILE_SIZE = 75; // 15 * 5
+  const KONAMI_MISSILE_SIZE = 15 * 5; // 75px
   const COLLISION_RADIUS = 20;
   const TRANSITION_DURATION = 2000;
-  const SAFE_DISTANCE = 200; // from center
+  const SAFE_DISTANCE = 200; // Minimum distance from center
 
   // Helper: Generate random pager positions based on current dimensions,
   // ensuring each pager is at least SAFE_DISTANCE from the center.
@@ -42,9 +53,6 @@ function PagerTron() {
     }
     return positions;
   }
-
-  // Determine if device supports touch
-  const isTouchDevice = "ontouchstart" in window;
 
   // Game state variables
   const [pagers, setPagers] = useState(generateRandomPagers(7));
@@ -89,11 +97,12 @@ function PagerTron() {
             if (missile.direction === "right") newX += speed;
             return { ...missile, x: newX, y: newY };
           })
-          .filter(missile =>
-            missile.y > 0 &&
-            missile.y < dimensions.height &&
-            missile.x > 0 &&
-            missile.x < dimensions.width
+          .filter(
+            missile =>
+              missile.y > 0 &&
+              missile.y < dimensions.height &&
+              missile.x > 0 &&
+              missile.x < dimensions.width
           );
 
       setPagers(prevPagers => {
@@ -169,7 +178,7 @@ function PagerTron() {
     return () => clearInterval(gameLoop);
   }, [player, level, gameOver, isTransitioning, konamiActive, gameStarted, dimensions]);
 
-  // Desktop keyboard handler
+  // Desktop keyboard event handler
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (!gameStarted) {
