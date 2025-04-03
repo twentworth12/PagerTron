@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import './Pagertron.css';
 
 function PagerTron() {
+  // Static dimensions for desktop version
   const SCREEN_WIDTH = 1280;
   const SCREEN_HEIGHT = 720;
   const PLAYER_SIZE = 50;
@@ -55,7 +56,7 @@ function PagerTron() {
     );
   }
 
-  // Regular game state variables
+  // Regular game state variables for desktop
   const [pagers, setPagers] = useState(generateRandomPagers(7));
   const [gameStarted, setGameStarted] = useState(false);
   const [player, setPlayer] = useState({ x: 640, y: 360, direction: "up" });
@@ -95,12 +96,11 @@ function PagerTron() {
             if (missile.direction === "right") newX += speed;
             return { ...missile, x: newX, y: newY };
           })
-          .filter(
-            missile =>
-              missile.y > 0 &&
-              missile.y < SCREEN_HEIGHT &&
-              missile.x > 0 &&
-              missile.x < SCREEN_WIDTH
+          .filter(missile =>
+            missile.y > 0 &&
+            missile.y < SCREEN_HEIGHT &&
+            missile.x > 0 &&
+            missile.x < SCREEN_WIDTH
           );
 
       setPagers(prevPagers => {
@@ -311,10 +311,10 @@ function PagerTron() {
         }}>
           Move fast when you break things.
         </div>
-        <div style={{ fontSize: "32px", marginTop: "10px" }}>
+        <div style={{ fontSize: "32px", marginTop: "10px", whiteSpace: "nowrap" }}>
           all-in-one incident management
         </div>
-        <div style={{ fontSize: "32px", marginTop: "10px" }}>
+        <div style={{ fontSize: "32px", marginTop: "10px", whiteSpace: "nowrap" }}>
           <a 
             href="https://incident.io" 
             target="_blank" 
@@ -371,7 +371,7 @@ function PagerTron() {
         </div>
       </div>
 
-      {/* Press Spacebar to Start Overlay */}
+      {/* Press Spacebar / Tap to Start Overlay */}
       {!gameStarted && !gameOver && (
         <div style={{
           position: "absolute",
@@ -384,7 +384,7 @@ function PagerTron() {
           textShadow: "2px 2px 0px #000",
           zIndex: 5,
         }}>
-          Press Spacebar to Start
+          {isMobile ? "Tap to Start" : "Press Spacebar to Start"}
         </div>
       )}
 
