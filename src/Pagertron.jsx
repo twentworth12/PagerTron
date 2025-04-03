@@ -10,7 +10,7 @@ function PagerTron() {
   const KONAMI_MISSILE_SIZE = 15 * 5; // 75px
   const COLLISION_RADIUS = 20;
   const TRANSITION_DURATION = 2000;
-  const SAFE_DISTANCE = 200; // Minimum distance from (640,360)
+  const SAFE_DISTANCE = 350; // Minimum distance from (640,360)
 
   // Helper: Generate random pager positions at least SAFE_DISTANCE away from (640,360)
   function generateRandomPagers(count) {
