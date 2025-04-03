@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import './Pagertron.css';
 
 function PagerTron() {
-  // Static dimensions for desktop version
   const SCREEN_WIDTH = 1280;
   const SCREEN_HEIGHT = 720;
   const PLAYER_SIZE = 50;
@@ -28,35 +27,36 @@ function PagerTron() {
   }
 
   // Mobile device detection (phone, not tablet)
-  const isMobile = /Mobi|Android.*Mobile/.test(navigator.userAgent);
-  if (isMobile) {
-    return (
-      <div style={{
-        backgroundColor: "#F25533",
-        width: "100%",
-        height: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        textAlign: "center",
-        color: "white",
-        fontFamily: "'Press Start 2P', cursive",
-        padding: "20px"
-      }}>
-        <div style={{
-          fontSize: "48px",
-          color: "rgba(255, 255, 255, 0.2)",
-          lineHeight: "1.2",
-          maxWidth: "90%",
-          margin: "0 auto"
-        }}>
-          Coming soon, check it out on your desktop for now
-        </div>
-      </div>
-    );
-  }
+  // Comment out this block so that the game renders on mobile devices.
+  // const isMobile = /Mobi|Android.*Mobile/.test(navigator.userAgent);
+  // if (isMobile) {
+  //   return (
+  //     <div style={{
+  //       backgroundColor: "#F25533",
+  //       width: "100%",
+  //       height: "100vh",
+  //       display: "flex",
+  //       justifyContent: "center",
+  //       alignItems: "center",
+  //       textAlign: "center",
+  //       color: "white",
+  //       fontFamily: "'Press Start 2P', cursive",
+  //       padding: "20px"
+  //     }}>
+  //       <div style={{
+  //         fontSize: "48px",
+  //         color: "rgba(255, 255, 255, 0.2)",
+  //         lineHeight: "1.2",
+  //         maxWidth: "90%",
+  //         margin: "0 auto"
+  //       }}>
+  //         Coming soon, check it out on your desktop for now
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  // Regular game state variables for desktop
+  // Regular game state variables
   const [pagers, setPagers] = useState(generateRandomPagers(7));
   const [gameStarted, setGameStarted] = useState(false);
   const [player, setPlayer] = useState({ x: 640, y: 360, direction: "up" });
@@ -96,11 +96,12 @@ function PagerTron() {
             if (missile.direction === "right") newX += speed;
             return { ...missile, x: newX, y: newY };
           })
-          .filter(missile =>
-            missile.y > 0 &&
-            missile.y < SCREEN_HEIGHT &&
-            missile.x > 0 &&
-            missile.x < SCREEN_WIDTH
+          .filter(
+            missile =>
+              missile.y > 0 &&
+              missile.y < SCREEN_HEIGHT &&
+              missile.x > 0 &&
+              missile.x < SCREEN_WIDTH
           );
 
       setPagers(prevPagers => {
@@ -384,7 +385,7 @@ function PagerTron() {
           textShadow: "2px 2px 0px #000",
           zIndex: 5,
         }}>
-          {isMobile ? "Tap to Start" : "Press Spacebar to Start"}
+          Press Spacebar to Start
         </div>
       )}
 
