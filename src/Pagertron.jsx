@@ -1,65 +1,68 @@
 import React, { useEffect, useState } from "react";
+import { supabase } from "./supabaseClient";
 import './Pagertron.css';
 
 function PagerTron() {
-  const SCREEN_WIDTH = 1280;
-  const SCREEN_HEIGHT = 720;
+  // Responsive dimensions state
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  useEffect(() => {
+    const handleResize = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Lock scrolling on touch devices
+  const isTouchDevice = "ontouchstart" in window;
+  useEffect(() => {
+    if (isTouchDevice) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [isTouchDevice]);
+
   const PLAYER_SIZE = 50;
   const PAGER_SIZE = 50;
   const MISSILE_SIZE = 15;
   const KONAMI_MISSILE_SIZE = 15 * 5; // 75px
   const COLLISION_RADIUS = 20;
   const TRANSITION_DURATION = 2000;
-  const SAFE_DISTANCE = 350; // Minimum distance from (640,360)
+  const SAFE_DISTANCE = 300; // Increased safe distance
 
-  // Helper: Generate random pager positions at least SAFE_DISTANCE away from (640,360)
+  // Helper: Generate random pager positions based on current dimensions,
+  // ensuring each pager is at least SAFE_DISTANCE from the center.
   function generateRandomPagers(count) {
     const positions = [];
+    const centerX = dimensions.width / 2;
+    const centerY = dimensions.height / 2;
     for (let i = 0; i < count; i++) {
       let x, y;
       do {
-        x = Math.floor(Math.random() * (SCREEN_WIDTH - PAGER_SIZE));
-        y = Math.floor(Math.random() * (SCREEN_HEIGHT - PAGER_SIZE));
-      } while (Math.sqrt((x - 640) ** 2 + (y - 360) ** 2) < SAFE_DISTANCE);
+        x = Math.floor(Math.random() * (dimensions.width - PAGER_SIZE));
+        y = Math.floor(Math.random() * (dimensions.height - PAGER_SIZE));
+      } while (Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2) < SAFE_DISTANCE);
       positions.push({ id: i + 1, x, y });
     }
     return positions;
   }
 
-  // Mobile device detection (phone, not tablet)
-  // Comment out this block so that the game renders on mobile devices.
-  // const isMobile = /Mobi|Android.*Mobile/.test(navigator.userAgent);
-  // if (isMobile) {
-  //   return (
-  //     <div style={{
-  //       backgroundColor: "#F25533",
-  //       width: "100%",
-  //       height: "100vh",
-  //       display: "flex",
-  //       justifyContent: "center",
-  //       alignItems: "center",
-  //       textAlign: "center",
-  //       color: "white",
-  //       fontFamily: "'Press Start 2P', cursive",
-  //       padding: "20px"
-  //     }}>
-  //       <div style={{
-  //         fontSize: "48px",
-  //         color: "rgba(255, 255, 255, 0.2)",
-  //         lineHeight: "1.2",
-  //         maxWidth: "90%",
-  //         margin: "0 auto"
-  //       }}>
-  //         Coming soon, check it out on your desktop for now
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // Regular game state variables
+  // Game state variables
   const [pagers, setPagers] = useState(generateRandomPagers(7));
   const [gameStarted, setGameStarted] = useState(false);
-  const [player, setPlayer] = useState({ x: 640, y: 360, direction: "up" });
+  const [player, setPlayer] = useState({
+    x: dimensions.width / 2,
+    y: dimensions.height / 2,
+    direction: "up",
+  });
   const [missiles, setMissiles] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [level, setLevel] = useState(1);
@@ -70,15 +73,46 @@ function PagerTron() {
 
   // Finale effect state
   const [finaleActive, setFinaleActive] = useState(false);
-  // finalComplete becomes true after a 5-second delay once finaleActive is triggered.
   const [finalComplete, setFinalComplete] = useState(false);
   const [finalMissiles, setFinalMissiles] = useState([]);
 
   const konamiCode = [
     "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
-    "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight"
+    "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight",
   ];
   const [konamiInput, setKonamiInput] = useState([]);
+
+  // Function to update the global high score in Supabase
+  const updateHighScore = async () => {
+    const { data, error } = await supabase
+      .from('global_high_score')
+      .select('score')
+      .eq('id', 1)
+      .single();
+    if (error) {
+      console.error('Error fetching high score:', error);
+      return;
+    }
+    const currentHighScore = data.score;
+    if (score > currentHighScore) {
+      const { data: updateData, error: updateError } = await supabase
+        .from('global_high_score')
+        .update({ score, last_updated: new Date().toISOString() })
+        .eq('id', 1);
+      if (updateError) {
+        console.error('Error updating high score:', updateError);
+      } else {
+        console.log('High score updated!', updateData);
+      }
+    }
+  };
+
+  // When gameOver is true, update the high score.
+  useEffect(() => {
+    if (gameOver) {
+      updateHighScore();
+    }
+  }, [gameOver, score]);
 
   // Main game loop (runs when game is active and not over)
   useEffect(() => {
@@ -99,9 +133,9 @@ function PagerTron() {
           .filter(
             missile =>
               missile.y > 0 &&
-              missile.y < SCREEN_HEIGHT &&
+              missile.y < dimensions.height &&
               missile.x > 0 &&
-              missile.x < SCREEN_WIDTH
+              missile.x < dimensions.width
           );
 
       setPagers(prevPagers => {
@@ -175,8 +209,9 @@ function PagerTron() {
       });
     }, 50);
     return () => clearInterval(gameLoop);
-  }, [player, level, gameOver, isTransitioning, konamiActive, gameStarted]);
+  }, [player, level, gameOver, isTransitioning, konamiActive, gameStarted, dimensions]);
 
+  // Desktop keyboard event handler
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (!gameStarted) {
@@ -186,8 +221,8 @@ function PagerTron() {
       if (gameOver || isTransitioning) return;
       setPlayer(prev => {
         const speed = 8;
-        let newX = Math.max(0, Math.min(SCREEN_WIDTH - PLAYER_SIZE, prev.x));
-        let newY = Math.max(0, Math.min(SCREEN_HEIGHT - PLAYER_SIZE, prev.y));
+        let newX = Math.max(0, Math.min(dimensions.width - PLAYER_SIZE, prev.x));
+        let newY = Math.max(0, Math.min(dimensions.height - PLAYER_SIZE, prev.y));
         let newDirection = prev.direction;
         if (event.key === "ArrowUp") { newY -= speed; newDirection = "up"; }
         if (event.key === "ArrowDown") { newY += speed; newDirection = "down"; }
@@ -218,7 +253,32 @@ function PagerTron() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [gameStarted, player, gameOver, isTransitioning, konamiCode]);
+  }, [gameStarted, player, gameOver, isTransitioning, konamiCode, dimensions]);
+
+  // Touch control functions for mobile
+  const movePlayer = (direction) => {
+    const speed = 8;
+    setPlayer(prev => {
+      let newX = prev.x;
+      let newY = prev.y;
+      if (direction === "up") newY -= speed;
+      if (direction === "down") newY += speed;
+      if (direction === "left") newX -= speed;
+      if (direction === "right") newX += speed;
+      return {
+        x: Math.max(0, Math.min(dimensions.width - PLAYER_SIZE, newX)),
+        y: Math.max(0, Math.min(dimensions.height - PLAYER_SIZE, newY)),
+        direction,
+      };
+    });
+  };
+
+  const shoot = () => {
+    setMissiles(prev => [
+      ...prev,
+      { x: player.x + PLAYER_SIZE / 2, y: player.y, direction: player.direction },
+    ]);
+  };
 
   // When the player dies, wait 3 seconds then trigger the finale effect.
   useEffect(() => {
@@ -231,7 +291,7 @@ function PagerTron() {
   // Finale: Spawn one missile per remaining pager simultaneously.
   useEffect(() => {
     if (finaleActive) {
-      const logoCenter = { x: 640, y: 360 };
+      const logoCenter = { x: dimensions.width / 2, y: dimensions.height / 2 };
       setFinalMissiles(
         pagers.map(target => {
           const dx = target.x - logoCenter.x;
@@ -241,7 +301,7 @@ function PagerTron() {
         })
       );
     }
-  }, [finaleActive]);
+  }, [finaleActive, pagers, dimensions]);
 
   // Finale: Update final missiles and check for collisions with pagers.
   useEffect(() => {
@@ -254,8 +314,8 @@ function PagerTron() {
           y: missile.y + missile.dy * 10,
         }));
         return newMissiles.filter(missile =>
-          missile.x >= 0 && missile.x <= SCREEN_WIDTH &&
-          missile.y >= 0 && missile.y <= SCREEN_HEIGHT
+          missile.x >= 0 && missile.x <= dimensions.width &&
+          missile.y >= 0 && missile.y <= dimensions.height
         );
       });
       setPagers(prevPagers =>
@@ -268,7 +328,7 @@ function PagerTron() {
       );
     }, 50);
     return () => clearInterval(updateInterval);
-  }, [finaleActive, finalMissiles]);
+  }, [finaleActive, finalMissiles, dimensions]);
 
   // When gameOver and finaleActive are true, wait an additional 5 seconds then show final text.
   useEffect(() => {
@@ -286,8 +346,8 @@ function PagerTron() {
     return (
       <div style={{
         backgroundColor: "#F25533",
-        width: `${SCREEN_WIDTH}px`,
-        height: `${SCREEN_HEIGHT}px`,
+        width: "100vw",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -295,7 +355,6 @@ function PagerTron() {
         textAlign: "center",
         color: "white",
         fontFamily: "'Press Start 2P', cursive",
-        border: "5px solid white",
         overflow: "hidden",
         padding: "20px"
       }}>
@@ -329,16 +388,86 @@ function PagerTron() {
     );
   }
 
+  // --- Render Start Screen if game is not started ---
+  if (!gameStarted) {
+    return (
+      <div style={{
+        backgroundColor: "#F25533",
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        textAlign: "center",
+        color: "white",
+        fontFamily: "'Press Start 2P', cursive",
+        overflow: "hidden",
+        padding: "20px"
+      }}>
+        <div style={{
+          fontSize: "32px",
+          marginBottom: "20px"
+        }}>
+          {isTouchDevice ? "Tap to Start" : "Press Spacebar to Start"}
+        </div>
+        <button
+          onClick={() => setGameStarted(true)}
+          style={{
+            fontSize: "24px",
+            padding: "10px 20px",
+            cursor: "pointer",
+            border: "none",
+            backgroundColor: "white",
+            color: "#F25533",
+            fontFamily: "'Press Start 2P', cursive"
+          }}
+        >
+          Start Game
+        </button>
+      </div>
+    );
+  }
+
+  // --- Render Touch Controls Overlay (for touch devices) ---
+  const touchControls = isTouchDevice && (
+    <>
+      <div style={{
+        position: "absolute",
+        bottom: "20px",
+        left: "20px",
+        zIndex: 100,
+        display: "flex",
+        flexDirection: "column",
+        gap: "5px",
+      }}>
+        <button onTouchStart={() => movePlayer("up")} style={{ fontSize: "24px" }}>↑</button>
+        <div style={{ display: "flex", gap: "5px" }}>
+          <button onTouchStart={() => movePlayer("left")} style={{ fontSize: "24px" }}>←</button>
+          <button onTouchStart={() => movePlayer("down")} style={{ fontSize: "24px" }}>↓</button>
+          <button onTouchStart={() => movePlayer("right")} style={{ fontSize: "24px" }}>→</button>
+        </div>
+      </div>
+      <div style={{
+        position: "absolute",
+        bottom: "20px",
+        right: "20px",
+        zIndex: 100,
+      }}>
+        <button onTouchStart={shoot} style={{ fontSize: "24px", padding: "10px 20px" }}>Shoot</button>
+      </div>
+    </>
+  );
+
   // --- Regular Game Rendering ---
   return (
     <div style={{ 
       backgroundColor: "#F25533",
       color: "white",
-      width: `${SCREEN_WIDTH}px`,
-      height: `${SCREEN_HEIGHT}px`,
+      width: "100vw",
+      height: "100vh",
       position: "relative",
       margin: "auto",
-      border: "5px solid white",
       overflow: "hidden"
     }}>
       {/* Background Text Overlay */}
@@ -372,8 +501,8 @@ function PagerTron() {
         </div>
       </div>
 
-      {/* Press Spacebar / Tap to Start Overlay */}
-      {!gameStarted && !gameOver && (
+      {/* Start Game Overlay (if not started) */}
+      {!gameStarted && (
         <div style={{
           position: "absolute",
           bottom: "20%",
@@ -385,7 +514,7 @@ function PagerTron() {
           textShadow: "2px 2px 0px #000",
           zIndex: 5,
         }}>
-          Press Spacebar to Start
+          {isTouchDevice ? "Tap to Start" : "Press Spacebar to Start"}
         </div>
       )}
 
@@ -505,7 +634,7 @@ function PagerTron() {
       )}
 
       {/* Game Over Screen */}
-      {gameOver && !finaleActive && (
+      {gameStarted && gameOver && !finaleActive && (
         <div style={{
           position: "absolute",
           top: "50%",
@@ -555,7 +684,7 @@ function PagerTron() {
         </>
       )}
 
-      {/* Player: Only shown if game is started and not over */}
+      {/* Player */}
       {gameStarted && !gameOver && (
         <div
           className="absolute w-12 h-12"
@@ -621,6 +750,36 @@ function PagerTron() {
           <span>🔥❤️</span>
         </div>
       ))}
+
+      {/* Touch Controls Overlay */}
+      {isTouchDevice && (
+        <>
+          <div style={{
+            position: "absolute",
+            bottom: "20px",
+            left: "20px",
+            zIndex: 100,
+            display: "flex",
+            flexDirection: "column",
+            gap: "5px",
+          }}>
+            <button onTouchStart={() => movePlayer("up")} style={{ fontSize: "24px" }}>↑</button>
+            <div style={{ display: "flex", gap: "5px" }}>
+              <button onTouchStart={() => movePlayer("left")} style={{ fontSize: "24px" }}>←</button>
+              <button onTouchStart={() => movePlayer("down")} style={{ fontSize: "24px" }}>↓</button>
+              <button onTouchStart={() => movePlayer("right")} style={{ fontSize: "24px" }}>→</button>
+            </div>
+          </div>
+          <div style={{
+            position: "absolute",
+            bottom: "20px",
+            right: "20px",
+            zIndex: 100,
+          }}>
+            <button onTouchStart={shoot} style={{ fontSize: "24px", padding: "10px 20px" }}>Shoot</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
