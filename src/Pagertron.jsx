@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import './Pagertron.css';
 import HighScoreModal from './HighScoreModal';
 import HighScoreTicker from './HighScoreTicker';
+// Import GameMusic with a key to force complete remount when game state changes
 import GameMusic from './GameMusic';
 
 function PagerTron() {
@@ -481,7 +482,11 @@ function PagerTron() {
         border: "5px solid white",
         position: "relative"
       }}>
-        <GameMusic isGameStarted={gameStarted} isGameOver={gameOver} />
+        <GameMusic
+          key={`music-highscore-${Date.now()}`}
+          isGameStarted={gameStarted}
+          isGameOver={gameOver}
+        />
         <HighScoreModal
           score={score}
           level={level}
@@ -512,7 +517,11 @@ function PagerTron() {
         position: "relative",
         padding: "20px"
       }}>
-        <GameMusic isGameStarted={false} isGameOver={true} />
+        <GameMusic
+          key={`music-finalscreen-${Date.now()}`}
+          isGameStarted={false}
+          isGameOver={true}
+        />
         <img
           src="https://media.licdn.com/dms/image/v2/D4E0BAQFJhMcjf87eCA/company-logo_200_200/company-logo_200_200/0/1709897084853/incident_io_logo?e=2147483647&v=beta&t=YhaUWh2pX9QqQKlHsXxEjzyd6KCbH5ntKRAJ6fx2SP4"
           alt="Incident.io Logo"
@@ -582,7 +591,11 @@ function PagerTron() {
       border: "5px solid white",
       overflow: "hidden"
     }}>
-      <GameMusic isGameStarted={gameStarted} isGameOver={gameOver} />
+      <GameMusic
+        key={`music-game-${gameStarted ? 'playing' : 'menu'}-${gameOver ? 'over' : 'active'}-${Date.now()}`}
+        isGameStarted={gameStarted}
+        isGameOver={gameOver}
+      />
       {/* Background Text Overlay */}
       <div style={{
         position: "absolute",

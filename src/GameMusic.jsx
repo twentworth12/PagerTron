@@ -1,24 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-// Force browser to load and autoplay
+// Force browser to load and autoplay without affecting the game's spacebar controls
 const forcePlay = () => {
   try {
-    // Try to simulate a user event to unlock audio
+    // Only simulate a click event, never a keyboard event to avoid spacebar issues
     const click = new MouseEvent('click', {
-      bubbles: true,
+      bubbles: false, // Prevent event bubbling to avoid affecting game controls
       cancelable: true,
       view: window
     });
-    document.dispatchEvent(click);
+
+    // Create a temporary element to dispatch the event on, to prevent global document events
+    const tempButton = document.createElement('button');
+    tempButton.style.display = 'none';
+    document.body.appendChild(tempButton);
+    tempButton.dispatchEvent(click);
+    document.body.removeChild(tempButton);
+
   } catch (e) {
-    console.log('Error simulating click:', e);
+    console.log('Error simulating click for audio context:', e);
   }
 };
 
 const GameMusic = ({ isGameStarted, isGameOver }) => {
   const introMusicRef = useRef(null);
   const gameplayMusicRef = useRef(null);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Start with music muted by default
   const [initializing, setInitializing] = useState(true);
   
   // Initialize audio on component mount
@@ -82,35 +89,44 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
       }
     };
     
-    // Use various techniques to try to start the music
-    startIntroMusic();
+    // Only try to start music if not muted
+    if (!isMuted) {
+      // Use various techniques to try to start the music
+      startIntroMusic();
 
-    // Brute force approach - try every 500ms for first 5 seconds
-    const autoplayAttempts = [];
-    for (let i = 1; i <= 10; i++) {
-      autoplayAttempts.push(
-        setTimeout(() => {
-          if (initializing) {
-            forcePlay();
-            startIntroMusic();
-          }
-        }, i * 500)
-      );
+      // Brute force approach - try every 500ms for first 5 seconds
+      const autoplayAttempts = [];
+      for (let i = 1; i <= 10; i++) {
+        autoplayAttempts.push(
+          setTimeout(() => {
+            if (initializing && !isMuted) {
+              forcePlay();
+              startIntroMusic();
+            }
+          }, i * 500)
+        );
+      }
+    } else {
+      // If starting muted, just mark as initialized
+      setInitializing(false);
     }
 
     // Force audio playback if user clicks anywhere on the page
     const handleAnyClick = () => {
-      if (initializing) {
+      if (initializing && !isMuted) {
         startIntroMusic();
       }
     };
 
     // Only add the click listener, not keydown to avoid spacebar conflicts
     document.addEventListener('click', handleAnyClick);
-    
+
     // Clean up on unmount
     return () => {
-      autoplayAttempts.forEach(timeout => clearTimeout(timeout));
+      // Clear any timeouts that might have been created
+      if (typeof autoplayAttempts !== 'undefined' && autoplayAttempts) {
+        autoplayAttempts.forEach(timeout => clearTimeout(timeout));
+      }
       document.removeEventListener('click', handleAnyClick);
       
       if (introMusicRef.current) {
@@ -121,7 +137,7 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
         gameplayMusicRef.current.pause();
       }
     };
-  }, [initializing]);
+  }, [initializing, isMuted]);
   
   // Handle music transitions based on game state
   useEffect(() => {
@@ -274,13 +290,43 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
     });
   };
   
+  // Block any keydown events on this component to prevent spacebar conflicts
+  useEffect(() => {
+    const preventKeydown = (e) => {
+      // Only prevent spacebar to avoid blocking other keyboard controls
+      if (e.key === " " || e.keyCode === 32) {
+        e.stopPropagation();
+      }
+    };
+
+    // Add a keydown listener to our button element to prevent spacebar from toggling music
+    const buttonElement = document.getElementById("music-toggle-button");
+    if (buttonElement) {
+      buttonElement.addEventListener("keydown", preventKeydown, { capture: true });
+
+      return () => {
+        buttonElement.removeEventListener("keydown", preventKeydown, { capture: true });
+      };
+    }
+  }, []);
+
   // Render mute/unmute button
   return (
     <button
+      id="music-toggle-button"
+      tabIndex="-1" // Prevent button from receiving focus and keyboard events
       onClick={(e) => {
         e.preventDefault(); // Prevent any default or bubbling
         e.stopPropagation();
         toggleMute();
+      }}
+      onKeyDown={(e) => {
+        // Prevent spacebar from toggling the button
+        if (e.key === " " || e.keyCode === 32) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
       }}
       style={{
         position: 'absolute',
@@ -301,7 +347,7 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
         justifyContent: 'center',
       }}
     >
-      {isMuted ? '🔈 MUSIC OFF' : '🔊 MUSIC ON'}
+      {isMuted ? '🔈 CLICK FOR MUSIC' : '🔊 MUSIC ON'}
     </button>
   );
 };
