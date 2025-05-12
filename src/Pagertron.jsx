@@ -222,6 +222,16 @@ function PagerTron() {
           ];
         });
       }
+
+      // Toggle music with "m" key
+      if (event.key.toLowerCase() === "m") {
+        // Find the music toggle button and simulate a click
+        const musicButton = document.getElementById("music-toggle-button");
+        if (musicButton) {
+          musicButton.click();
+        }
+      }
+
       const key = event.key;
       setKonamiInput(prev => {
         const newInput = [...prev, key];
@@ -721,7 +731,7 @@ function PagerTron() {
           transition: "opacity 0.3s",
           zIndex: 1
         }}>
-          Instructions: Move: Arrow Keys, Shoot: Spacebar, Score: 10 pts per pager
+          Instructions: Move: Arrow Keys, Shoot: Spacebar, Music: M, Score: 10 pts per pager
         </div>
       )}
 

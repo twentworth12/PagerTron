@@ -332,22 +332,22 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
     });
   };
   
-  // Block any keydown events on this component to prevent spacebar conflicts
+  // Handle M key for toggling music
   useEffect(() => {
-    const preventKeydown = (e) => {
-      // Only prevent spacebar to avoid blocking other keyboard controls
+    const handleMusicKeyToggle = (e) => {
+      // Handle M key to toggle music, but prevent spacebar toggling
       if (e.key === " " || e.keyCode === 32) {
         e.stopPropagation();
       }
     };
 
-    // Add a keydown listener to our button element to prevent spacebar from toggling music
+    // Add a keydown listener to our button element
     const buttonElement = document.getElementById("music-toggle-button");
     if (buttonElement) {
-      buttonElement.addEventListener("keydown", preventKeydown, { capture: true });
+      buttonElement.addEventListener("keydown", handleMusicKeyToggle, { capture: true });
 
       return () => {
-        buttonElement.removeEventListener("keydown", preventKeydown, { capture: true });
+        buttonElement.removeEventListener("keydown", handleMusicKeyToggle, { capture: true });
       };
     }
   }, []);
@@ -391,7 +391,7 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
         animation: isMuted ? 'pulse 1.5s infinite alternate' : 'none', // Add pulsing animation when muted
       }}
     >
-      {isMuted ? '🔈 CLICK FOR MUSIC' : '🔊 MUSIC ON'}
+      {isMuted ? '🔈 MUSIC OFF (M)' : '🔊 MUSIC ON (M)'}
     </button>
   );
 };
