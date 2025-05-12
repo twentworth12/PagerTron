@@ -258,34 +258,76 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
   
   // Toggle mute function for the music button
   const toggleMute = () => {
+    console.log("Toggle mute clicked. Current state:", isMuted, "Game started:", isGameStarted, "Game over:", isGameOver);
+
+    // Force user interaction to enable audio
+    forcePlay();
+    document.body.click();
+
     setIsMuted(prevMuted => {
       const newMuted = !prevMuted;
-      
+      console.log("Setting muted to:", newMuted);
+
       if (newMuted) {
         // Mute audio - pause both tracks
+        console.log("Pausing all audio tracks");
         if (introMusicRef.current) introMusicRef.current.pause();
         if (gameplayMusicRef.current) gameplayMusicRef.current.pause();
       } else {
         // Unmute - resume appropriate track based on game state
         if (isGameStarted && !isGameOver) {
+          console.log("Attempting to play gameplay music");
           if (gameplayMusicRef.current) {
-            gameplayMusicRef.current.play().catch(e => {
-              console.error('Failed to resume gameplay music:', e);
-              forcePlay();
-              gameplayMusicRef.current.play();
-            });
+            // Reset volume to ensure it's audible
+            gameplayMusicRef.current.volume = 0.4;
+
+            // Try multiple approaches to get audio playing
+            forcePlay();
+
+            // Try to play with multiple retries
+            const playAttempt = () => {
+              gameplayMusicRef.current.play().catch(e => {
+                console.error('Failed to play gameplay music, retrying:', e);
+                // Try again with a slight delay
+                setTimeout(() => {
+                  forcePlay();
+                  gameplayMusicRef.current.play().catch(console.error);
+                }, 100);
+              });
+            };
+
+            playAttempt();
+            // Additional attempt after a delay
+            setTimeout(playAttempt, 300);
           }
         } else {
+          console.log("Attempting to play intro music");
           if (introMusicRef.current) {
-            introMusicRef.current.play().catch(e => {
-              console.error('Failed to resume intro music:', e);
-              forcePlay();
-              introMusicRef.current.play();
-            });
+            // Reset volume to ensure it's audible
+            introMusicRef.current.volume = 0.5;
+
+            // Try multiple approaches to get audio playing
+            forcePlay();
+
+            // Try to play with multiple retries
+            const playAttempt = () => {
+              introMusicRef.current.play().catch(e => {
+                console.error('Failed to play intro music, retrying:', e);
+                // Try again with a slight delay
+                setTimeout(() => {
+                  forcePlay();
+                  introMusicRef.current.play().catch(console.error);
+                }, 100);
+              });
+            };
+
+            playAttempt();
+            // Additional attempt after a delay
+            setTimeout(playAttempt, 300);
           }
         }
       }
-      
+
       return newMuted;
     });
   };
@@ -333,7 +375,7 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
         top: '10px',
         left: '50%',
         transform: 'translateX(-50%)',
-        background: 'rgba(0, 0, 0, 0.6)',
+        background: isMuted ? 'rgba(255, 0, 0, 0.7)' : 'rgba(0, 128, 0, 0.7)', // Red when muted, green when unmuted
         border: '2px solid white',
         borderRadius: '5px',
         color: 'white',
@@ -341,10 +383,12 @@ const GameMusic = ({ isGameStarted, isGameOver }) => {
         fontSize: '12px',
         padding: '5px 10px',
         cursor: 'pointer',
-        zIndex: 10,
+        zIndex: 1000, // Ensure highest z-index
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        boxShadow: '0 0 10px rgba(255, 255, 255, 0.8)', // Add glow effect
+        animation: isMuted ? 'pulse 1.5s infinite alternate' : 'none', // Add pulsing animation when muted
       }}
     >
       {isMuted ? '🔈 CLICK FOR MUSIC' : '🔊 MUSIC ON'}
