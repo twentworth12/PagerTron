@@ -62,7 +62,15 @@ function PagerTron() {
   // Regular game state variables
   const [pagers, setPagers] = useState(generateRandomPagers(7));
   const [gameStarted, setGameStarted] = useState(false);
-  const [player, setPlayer] = useState({ x: 640, y: 360, direction: "up" });
+  // Enhanced player state with rotation angle and velocity for Asteroids-style controls
+  const [player, setPlayer] = useState({
+    x: 640,
+    y: 360,
+    rotation: 0, // in degrees, 0 = up, 90 = right, etc.
+    direction: "up", // kept for compatibility
+    velocityX: 0,
+    velocityY: 0
+  });
   const [missiles, setMissiles] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [level, setLevel] = useState(1);
@@ -85,21 +93,67 @@ function PagerTron() {
   ];
   const [konamiInput, setKonamiInput] = useState([]);
 
+  // Track thruster state for visual effects
+  const [thrusterActive, setThrusterActive] = useState(false);
+
   // Main game loop (runs when game is active and not over)
   useEffect(() => {
     if (!gameStarted || gameOver || isTransitioning) return;
+    // Keep the original update rate for the main game loop
     const gameLoop = setInterval(() => {
+      // First update player position based on velocity (Asteroids physics)
+      setPlayer(prevPlayer => {
+        // Apply current velocity to position
+        let newX = prevPlayer.x + prevPlayer.velocityX;
+        let newY = prevPlayer.y + prevPlayer.velocityY;
+
+        // Apply drag/friction to gradually slow down
+        const drag = 0.98; // Reduce velocity by 2% each frame
+        const newVelocityX = prevPlayer.velocityX * drag;
+        const newVelocityY = prevPlayer.velocityY * drag;
+
+        // Handle screen wrapping (Asteroids style)
+        if (newX < 0) newX = SCREEN_WIDTH;
+        if (newX > SCREEN_WIDTH) newX = 0;
+        if (newY < 0) newY = SCREEN_HEIGHT;
+        if (newY > SCREEN_HEIGHT) newY = 0;
+
+        // Auto-decay thruster effect if it's active
+        if (thrusterActive) {
+          setThrusterActive(Math.random() > 0.2); // 80% chance to keep it on each frame
+        }
+
+        return {
+          ...prevPlayer,
+          x: newX,
+          y: newY,
+          velocityX: newVelocityX,
+          velocityY: newVelocityY
+        };
+      });
+
+      // Then update missiles with vector-based movement
       setMissiles(prevMissiles => {
         const updatedMissiles = prevMissiles
           .map(missile => {
-            let newX = missile.x;
-            let newY = missile.y;
-            const speed = 8;
-            if (missile.direction === "up") newY -= speed;
-            if (missile.direction === "down") newY += speed;
-            if (missile.direction === "left") newX -= speed;
-            if (missile.direction === "right") newX += speed;
-            return { ...missile, x: newX, y: newY };
+            // If missile has velocity components from the new system, use those
+            if (missile.velocityX !== undefined && missile.velocityY !== undefined) {
+              const missileSpeed = 12; // Faster than regular speed
+              const newX = missile.x + missile.velocityX * missileSpeed;
+              const newY = missile.y + missile.velocityY * missileSpeed;
+              return { ...missile, x: newX, y: newY };
+            }
+            // Fallback to old direction-based movement
+            else {
+              let newX = missile.x;
+              let newY = missile.y;
+              const speed = 8;
+              if (missile.direction === "up") newY -= speed;
+              if (missile.direction === "down") newY += speed;
+              if (missile.direction === "left") newX -= speed;
+              if (missile.direction === "right") newX += speed;
+              return { ...missile, x: newX, y: newY };
+            }
           })
           .filter(
             missile =>
@@ -171,6 +225,15 @@ function PagerTron() {
             setLevel(prevLevel => prevLevel + 1);
             setPagers(generateRandomPagers(7));
             setMissiles([]);
+            // Reset player position to center of screen with upward direction and no velocity
+            setPlayer({
+              x: 640,
+              y: 360,
+              rotation: 0,
+              direction: "up",
+              velocityX: 0,
+              velocityY: 0
+            });
             setIsTransitioning(false);
           }, TRANSITION_DURATION);
         }
@@ -195,15 +258,60 @@ function PagerTron() {
       }
       if (gameOver || isTransitioning) return;
       setPlayer(prev => {
-        const speed = 8;
-        let newX = Math.max(0, Math.min(SCREEN_WIDTH - PLAYER_SIZE, prev.x));
-        let newY = Math.max(0, Math.min(SCREEN_HEIGHT - PLAYER_SIZE, prev.y));
-        let newDirection = prev.direction;
-        if (event.key === "ArrowUp") { newY -= speed; newDirection = "up"; }
-        if (event.key === "ArrowDown") { newY += speed; newDirection = "down"; }
-        if (event.key === "ArrowLeft") { newX -= speed; newDirection = "left"; }
-        if (event.key === "ArrowRight") { newX += speed; newDirection = "right"; }
-        return { x: newX, y: newY, direction: newDirection };
+        const rotationSpeed = 15; // degrees per key press
+        const thrustPower = 0.5; // acceleration per key press
+        const maxSpeed = 10; // maximum velocity
+
+        // Get current state
+        let newRotation = prev.rotation;
+        let newVelocityX = prev.velocityX;
+        let newVelocityY = prev.velocityY;
+        let newDirection = prev.direction; // Keep for backward compatibility
+
+        // Handle rotation with left/right arrows
+        if (event.key === "ArrowLeft") {
+          newRotation = (newRotation - rotationSpeed) % 360;
+          if (newRotation < 0) newRotation += 360;
+        }
+        if (event.key === "ArrowRight") {
+          newRotation = (newRotation + rotationSpeed) % 360;
+        }
+
+        // Handle forward thrust with up arrow
+        if (event.key === "ArrowUp") {
+          // Convert rotation to radians for math calculations
+          const rotationRad = newRotation * Math.PI / 180;
+
+          // Apply thrust in direction of rotation
+          newVelocityX += Math.sin(rotationRad) * thrustPower;
+          newVelocityY -= Math.cos(rotationRad) * thrustPower; // Y is inverted in screen coordinates
+
+          // Cap maximum velocity
+          const currentSpeed = Math.sqrt(newVelocityX * newVelocityX + newVelocityY * newVelocityY);
+          if (currentSpeed > maxSpeed) {
+            const scale = maxSpeed / currentSpeed;
+            newVelocityX *= scale;
+            newVelocityY *= scale;
+          }
+
+          // Activate thruster visual effect
+          setThrusterActive(true);
+        }
+
+        // Set direction based on rotation for backward compatibility
+        if (newRotation >= 315 || newRotation < 45) newDirection = "up";
+        else if (newRotation >= 45 && newRotation < 135) newDirection = "right";
+        else if (newRotation >= 135 && newRotation < 225) newDirection = "down";
+        else if (newRotation >= 225 && newRotation < 315) newDirection = "left";
+
+        // Keep position unchanged - it will be updated in the game loop
+        return {
+          ...prev,
+          rotation: newRotation,
+          direction: newDirection,
+          velocityX: newVelocityX,
+          velocityY: newVelocityY
+        };
       });
       if (event.key === " ") {
         setMissiles(prev => {
@@ -211,26 +319,29 @@ function PagerTron() {
           const centerX = player.x + PLAYER_SIZE / 2;
           const centerY = player.y + PLAYER_SIZE / 2;
 
-          // Adjust the starting position based on direction
-          let missileX = centerX;
-          let missileY = centerY;
+          // Convert rotation to radians for missile direction
+          const rotationRad = player.rotation * Math.PI / 180;
 
-          // Add the missile with centered coordinates
+          // Calculate missile direction vector based on player rotation
+          const missileDirectionX = Math.sin(rotationRad);
+          const missileDirectionY = -Math.cos(rotationRad); // Y is inverted in screen coordinates
+
+          // Add the missile with centered coordinates and rotation-based direction
           return [
             ...prev,
-            { x: missileX, y: missileY, direction: player.direction }
+            {
+              x: centerX,
+              y: centerY,
+              direction: player.direction, // Keep for backward compatibility
+              rotation: player.rotation,
+              velocityX: missileDirectionX,
+              velocityY: missileDirectionY
+            }
           ];
         });
       }
 
-      // Toggle music with "m" key
-      if (event.key.toLowerCase() === "m") {
-        // Find the music toggle button and simulate a click
-        const musicButton = document.getElementById("music-toggle-button");
-        if (musicButton) {
-          musicButton.click();
-        }
-      }
+      // M key for music is now handled in a separate event listener
 
       const key = event.key;
       setKonamiInput(prev => {
@@ -250,6 +361,9 @@ function PagerTron() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameStarted, player, gameOver, isTransitioning, konamiCode]);
+
+  // Music toggle is now only available through the button click
+  // Removed M key handling to improve performance
 
   // When the player dies, trigger the finale effect immediately
   useEffect(() => {
@@ -291,8 +405,8 @@ function PagerTron() {
         });
       });
 
-      // Add missiles in a very dense grid pattern to cover the entire screen quickly
-      const gridSize = 16; // 16x16 grid = 256 additional missiles for a faster, more thorough screen wipe
+      // Use a smaller grid for better performance
+      const gridSize = 6; // 6x6 grid = 36 missiles
       for (let i = 0; i < gridSize; i++) {
         for (let j = 0; j < gridSize; j++) {
           // Calculate target positions across the screen
@@ -323,6 +437,7 @@ function PagerTron() {
   useEffect(() => {
     if (!finaleActive) return;
 
+    // Use a slightly slower update interval for better performance
     const updateInterval = setInterval(() => {
       // Update missile positions
       setFinalMissiles(prevMissiles => {
@@ -340,40 +455,31 @@ function PagerTron() {
 
         // Create explosions at the positions of missiles that went out of bounds
         if (outOfBoundsMissiles.length > 0) {
-          // Create multiple explosions for each out-of-bounds missile
-          outOfBoundsMissiles.forEach(missile => {
+          // Create explosions efficiently by batching updates
+          const newExplosions = [];
+
+          // Process fewer missiles per frame for better performance
+          const maxMissilesToProcess = Math.min(outOfBoundsMissiles.length, 3);
+          for (let m = 0; m < maxMissilesToProcess; m++) {
+            const missile = outOfBoundsMissiles[m];
             const baseX = Math.max(0, Math.min(SCREEN_WIDTH, missile.x));
             const baseY = Math.max(0, Math.min(SCREEN_HEIGHT, missile.y));
 
-            // Add 2-3 explosions per missile for a faster but still dramatic effect
-            const explosionCount = Math.floor(Math.random() * 2) + 2;
-            for (let i = 0; i < explosionCount; i++) {
-              setExplosions(prev => [
-                ...prev,
-                {
-                  x: baseX + (Math.random() * 60 - 30),
-                  y: baseY + (Math.random() * 60 - 30),
-                  size: Math.random() * 120 + 40,
-                  createdAt: Date.now() + (i * 40) // Faster stagger timing
-                }
-              ]);
-            }
-          });
-
-          // Add some random explosions elsewhere on screen for dramatic effect
-          if (Math.random() < 0.3) { // 30% chance each update
-            const randomX = Math.random() * SCREEN_WIDTH;
-            const randomY = Math.random() * SCREEN_HEIGHT;
-            setExplosions(prev => [
-              ...prev,
-              {
-                x: randomX,
-                y: randomY,
-                size: Math.random() * 150 + 50,
-                createdAt: Date.now()
-              }
-            ]);
+            // Just one simple explosion per missile
+            newExplosions.push({
+              x: baseX,
+              y: baseY,
+              size: 70,
+              createdAt: Date.now()
+            });
           }
+
+          // One single state update instead of multiple for better performance
+          if (newExplosions.length > 0) {
+            setExplosions(prev => [...prev, ...newExplosions]);
+          }
+
+          // Removed random explosions for better performance
         }
 
         // Keep only missiles that are still on screen
@@ -387,21 +493,24 @@ function PagerTron() {
       setPagers(prevPagers => {
         // If we have missiles in motion and pagers remaining
         if (finalMissiles.length > 0 && prevPagers.length > 0) {
-          // Create explosions for all remaining pagers
-          prevPagers.forEach(pager => {
-            // Add multiple explosions per pager for a more dramatic effect
-            for (let i = 0; i < 3; i++) {
-              setExplosions(prev => [
-                ...prev,
-                {
-                  x: pager.x + (Math.random() * 30 - 15),
-                  y: pager.y + (Math.random() * 30 - 15),
-                  size: Math.random() * 100 + 50,
-                  createdAt: Date.now() + (i * 100) // Stagger explosion timing
-                }
-              ]);
-            }
+          // Create explosions for pagers
+          const newPagerExplosions = [];
+
+          // Simplified pager explosions for better performance
+          prevPagers.slice(0, 5).forEach(pager => {
+            // Just one explosion per pager
+            newPagerExplosions.push({
+              x: pager.x,
+              y: pager.y,
+              size: 80,
+              createdAt: Date.now()
+            });
           });
+
+          // One single state update instead of multiple
+          if (newPagerExplosions.length > 0) {
+            setExplosions(prev => [...prev, ...newPagerExplosions]);
+          }
 
           // Destroy all pagers regardless of missile proximity
           // This ensures the screen is completely cleared during the finale
@@ -412,17 +521,19 @@ function PagerTron() {
         return prevPagers;
       });
 
-      // Remove old explosions
-      setExplosions(prev =>
-        prev.filter(explosion => Date.now() - explosion.createdAt < 700) // Shorter explosion duration
-      );
+      // Simpler explosion cleanup for better performance
+      setExplosions(prev => {
+        // Limit both the lifetime and total count
+        const filtered = prev.slice(-30); // Keep only the 30 most recent explosions
+        return filtered.filter(explosion => Date.now() - explosion.createdAt < 500);
+      });
 
-    }, 50);
+    }, 50); // Return to original update rate
 
     return () => clearInterval(updateInterval);
   }, [finaleActive, SCREEN_WIDTH, SCREEN_HEIGHT, KONAMI_MISSILE_SIZE]);
 
-  // When gameOver and finaleActive are true, use a much shorter finale effect and skip to final screen
+  // When gameOver and finaleActive are true, use an optimized finale effect
   useEffect(() => {
     if (gameOver && finaleActive) {
       // Use a much shorter time for the screen clearing effect
@@ -431,20 +542,23 @@ function PagerTron() {
         const centerX = SCREEN_WIDTH / 2;
         const centerY = SCREEN_HEIGHT / 2;
 
-        // Add a final burst of explosions
-        for (let i = 0; i < 15; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const distance = Math.random() * 200;
-          setExplosions(prev => [
-            ...prev,
-            {
-              x: centerX + Math.cos(angle) * distance,
-              y: centerY + Math.sin(angle) * distance,
-              size: Math.random() * 200 + 100,
-              createdAt: Date.now() + (i * 50) // Shorter stagger between explosions
-            }
-          ]);
+        // Create all explosions in one batch update for better performance
+        const finalExplosions = [];
+
+        // Create fewer explosions for better performance
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI * 2; // Evenly spaced angles
+          const distance = 150;
+          finalExplosions.push({
+            x: centerX + Math.cos(angle) * distance,
+            y: centerY + Math.sin(angle) * distance,
+            size: 150,
+            createdAt: Date.now()
+          });
         }
+
+        // Single state update
+        setExplosions(prev => [...prev, ...finalExplosions]);
 
         // Show high score modal after finale effect
         setTimeout(() => {
@@ -466,7 +580,14 @@ function PagerTron() {
     // Reset all game state variables
     setPagers(generateRandomPagers(7));
     setGameStarted(false);
-    setPlayer({ x: 640, y: 360, direction: "up" });
+    setPlayer({
+      x: 640,
+      y: 360,
+      rotation: 0,
+      direction: "up",
+      velocityX: 0,
+      velocityY: 0
+    });
     setMissiles([]);
     setGameOver(false);
     setLevel(1);
@@ -479,6 +600,7 @@ function PagerTron() {
     setFinalMissiles([]);
     setExplosions([]);
     setKonamiInput([]);
+    setThrusterActive(false);
   };
 
   // --- Render High Score Modal ---
@@ -731,7 +853,7 @@ function PagerTron() {
           transition: "opacity 0.3s",
           zIndex: 1
         }}>
-          Instructions: Move: Arrow Keys, Shoot: Spacebar, Music: M, Score: 10 pts per pager
+          Instructions: Rotate: ← →, Thrust: ↑, Shoot: Spacebar, Score: 10 pts per pager
         </div>
       )}
 
@@ -880,17 +1002,11 @@ function PagerTron() {
                 left: `${explosion.x - explosion.size / 2}px`,
                 top: `${explosion.y - explosion.size / 2}px`,
                 borderRadius: "50%",
-                background: Math.random() > 0.3
-                  ? "radial-gradient(circle, #ffff00 0%, #ff8800 40%, transparent 70%)"
-                  : Math.random() > 0.5
-                  ? "radial-gradient(circle, #00ffff 0%, #ff00ff 40%, transparent 70%)"
-                  : "radial-gradient(circle, #88ff88 0%, #ff00ff 40%, transparent 70%)",
-                boxShadow: "0 0 30px #ff00ff, 0 0 15px #ffff00",
+                background: "radial-gradient(circle, #ffff00 0%, #ff8800 40%, transparent 70%)",
+                boxShadow: "0 0 15px #ff00ff",
                 filter: "blur(2px)",
                 opacity: 1 - (Date.now() - explosion.createdAt) / 1000,
-                zIndex: 12,
-                transform: `rotate(${Math.random() * 360}deg)`,
-                animation: `pulse ${0.2 + Math.random() * 0.4}s infinite alternate`
+                zIndex: 12
               }}
             />
           ))}
@@ -968,12 +1084,28 @@ function PagerTron() {
           <div style={{
             fontSize: "40px",
             lineHeight: 1,
-            transform: player.direction === "left" ? "rotate(-90deg)" :
-                      player.direction === "right" ? "rotate(90deg)" :
-                      player.direction === "down" ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.2s ease"
+            transform: `rotate(${player.rotation}deg)`,
+            transition: "transform 0.1s ease",
+            position: "relative"
           }}>
             🔥
+            {/* Thruster effect when accelerating */}
+            {thrusterActive && (
+              <div style={{
+                position: "absolute",
+                bottom: "-70%", // Position behind the player
+                left: "50%",
+                transform: "translateX(-50%)",
+                fontSize: "24px",
+                color: "#ffff00",
+                filter: "drop-shadow(0 0 5px #ff8800)",
+                transformOrigin: "center",
+                animation: "pulse 0.2s infinite alternate",
+                zIndex: -1
+              }}>
+                {Math.random() > 0.5 ? "✨" : "💫"}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1000,63 +1132,69 @@ function PagerTron() {
       ))}
 
       {/* Missiles - 80s arcade style projectiles - only show during normal gameplay */}
-      {gameStarted && !finaleActive && missiles.map((missile, index) => (
-        <div
-          key={index}
-          style={{
-            position: "absolute",
-            width: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
-            height: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
-            // Center the missile by offsetting half the missile size
-            left: `${missile.x - (konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE) / 2}px`,
-            top: `${missile.y - (konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE) / 2}px`,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            opacity: isTransitioning ? 0 : 1,
-            transition: "opacity 0.3s",
-            zIndex: 3,
-            transform: missile.direction === "left" || missile.direction === "right"
-              ? "rotate(90deg)"
-              : (missile.direction === "down" ? "rotate(180deg)" : "rotate(0deg)"),
-            animation: konamiActive
-              ? "pulse 0.5s infinite alternate"
-              : undefined
-          }}
-        >
-          <div style={{
-            fontSize: `${konamiActive ? 60 : 24}px`,
-            lineHeight: 1,
-            filter: "drop-shadow(0 0 5px #ff8800)",
-            // Add trail effect for missiles
-            position: "relative"
-          }}>
-            {konamiActive ? "🔥💥" : "🔥"}
-            {/* Improved missile trail effect that works in all directions */}
-            <div style={{
+      {gameStarted && !finaleActive && missiles.map((missile, index) => {
+        // Calculate rotation angle for the missile
+        const missileRotation = missile.rotation !== undefined
+          ? missile.rotation // Use stored rotation if available
+          : missile.direction === "left" ? 270
+            : missile.direction === "right" ? 90
+            : missile.direction === "down" ? 180 : 0;
+
+        // Calculate trail position based on rotation
+        const trailAngleRad = missileRotation * Math.PI / 180;
+        const trailX = -Math.sin(trailAngleRad); // negative because we want opposite of direction
+        const trailY = Math.cos(trailAngleRad); // no negative because y is inverted in screen coordinates
+
+        return (
+          <div
+            key={index}
+            style={{
               position: "absolute",
-              opacity: 0.7,
-              filter: "blur(2px)",
-              fontSize: `${konamiActive ? 30 : 15}px`,
-              color: "#ffff00",
-              textAlign: "center",
-              // Position the trail behind the missile based on its direction of travel
-              // This ensures trails always appear to follow the missile correctly
-              ...( missile.direction === "up"
-                  ? { bottom: "100%", left: "0", width: "100%" }
-                  : missile.direction === "down"
-                  ? { top: "100%", left: "0", width: "100%" }
-                  : missile.direction === "left"
-                  ? { right: "100%", top: "0", height: "100%", display: "flex", alignItems: "center", justifyContent: "flex-end" }
-                  : { left: "100%", top: "0", height: "100%", display: "flex", alignItems: "center", justifyContent: "flex-start" }
-              )
+              width: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
+              height: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
+              // Center the missile by offsetting half the missile size
+              left: `${missile.x - (konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE) / 2}px`,
+              top: `${missile.y - (konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE) / 2}px`,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              opacity: isTransitioning ? 0 : 1,
+              transition: "opacity 0.3s",
+              zIndex: 3,
+              animation: konamiActive ? "pulse 0.5s infinite alternate" : undefined
+            }}
+          >
+            <div style={{
+              fontSize: `${konamiActive ? 60 : 24}px`,
+              lineHeight: 1,
+              filter: "drop-shadow(0 0 5px #ff8800)",
+              transform: `rotate(${missileRotation}deg)`,
+              // Add trail effect for missiles
+              position: "relative"
             }}>
-              {/* Add multiple sparkles for Konami mode */}
-              {konamiActive ? "✨✨✨" : "✨"}
+              {konamiActive ? "🔥💥" : "🔥"}
+              {/* Vector-based missile trail that works in any direction */}
+              <div style={{
+                position: "absolute",
+                opacity: 0.7,
+                filter: "blur(2px)",
+                fontSize: `${konamiActive ? 30 : 15}px`,
+                color: "#ffff00",
+                textAlign: "center",
+                // Position trail based on the missile's rotation vector
+                // This ensures trails always appear behind the missile
+                top: `${trailY * 100}%`,
+                left: `${trailX * 100}%`,
+                transform: `translate(${trailX < 0 ? '0' : '-100%'}, ${trailY < 0 ? '0' : '-100%'})`,
+                whiteSpace: "nowrap"
+              }}>
+                {/* Add multiple sparkles for Konami mode */}
+                {konamiActive ? "✨✨✨" : "✨"}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
