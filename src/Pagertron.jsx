@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
 import './Pagertron.css';
+import HighScoreModal from './HighScoreModal';
+import HighScoreTicker from './HighScoreTicker';
+import GameMusic from './GameMusic';
 
 function PagerTron() {
   const SCREEN_WIDTH = 1280;
@@ -72,6 +75,7 @@ function PagerTron() {
   // finalComplete becomes true after a 5-second delay once finaleActive is triggered.
   const [finalComplete, setFinalComplete] = useState(false);
   const [finalMissiles, setFinalMissiles] = useState([]);
+  const [showHighScoreModal, setShowHighScoreModal] = useState(false);
 
   const konamiCode = [
     "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
@@ -149,7 +153,7 @@ function PagerTron() {
             Math.pow(player.y + PLAYER_SIZE / 2 - (pager.y + PAGER_SIZE / 2), 2)
           );
           if (distance < 100) {
-            console.log(Distance to pager at (${pager.x}, ${pager.y}): ${distance});
+            console.log(`Distance to pager at (${pager.x}, ${pager.y}): ${distance}`);
           }
           return distance < COLLISION_RADIUS;
         });
@@ -249,8 +253,8 @@ function PagerTron() {
       setFinalMissiles(prevMissiles => {
         const newMissiles = prevMissiles.map(missile => ({
           ...missile,
-          x: missile.x + missile.dx * 10,
-          y: missile.y + missile.dy * 10,
+          x: missile.x + missile.dx * 20,
+          y: missile.y + missile.dy * 20,
         }));
         return newMissiles.filter(missile =>
           missile.x >= 0 && missile.x <= SCREEN_WIDTH &&
@@ -261,7 +265,7 @@ function PagerTron() {
         prevPagers.filter(pager => {
           return !finalMissiles.some(missile => {
             const distance = Math.sqrt((missile.x - pager.x) ** 2 + (missile.y - pager.y) ** 2);
-            return distance < 20;
+            return distance < KONAMI_MISSILE_SIZE / 2;
           });
         })
       );
@@ -274,19 +278,64 @@ function PagerTron() {
     if (gameOver && finaleActive) {
       const timer = setTimeout(() => {
         setFinaleActive(false);
-        setFinalComplete(true);
+        setShowHighScoreModal(true); // First show high score modal
       }, 5000);
       return () => clearTimeout(timer);
     }
   }, [gameOver, finaleActive]);
+
+  const handleCloseHighScoreModal = () => {
+    setShowHighScoreModal(false);
+    setFinalComplete(true);
+  };
+
+  const resetGame = () => {
+    // Reset all game state variables
+    setPagers(generateRandomPagers(7));
+    setGameStarted(false);
+    setPlayer({ x: 640, y: 360, direction: "up" });
+    setMissiles([]);
+    setGameOver(false);
+    setLevel(1);
+    setScore(0);
+    setIsTransitioning(false);
+    setKonamiActive(false);
+    setKonamiMessageVisible(false);
+    setFinaleActive(false);
+    setFinalComplete(false);
+    setFinalMissiles([]);
+    setKonamiInput([]);
+  };
+
+  // --- Render High Score Modal ---
+  if (showHighScoreModal) {
+    return (
+      <div style={{
+        backgroundColor: "#F25533",
+        width: `${SCREEN_WIDTH}px`,
+        height: `${SCREEN_HEIGHT}px`,
+        margin: "auto",
+        border: "5px solid white",
+        position: "relative"
+      }}>
+        <GameMusic isGameStarted={gameStarted} isGameOver={gameOver} />
+        <HighScoreModal
+          score={score}
+          level={level}
+          onClose={handleCloseHighScoreModal}
+          isVisible={showHighScoreModal}
+        />
+      </div>
+    );
+  }
 
   // --- Render Final Screen if finalComplete is true ---
   if (finalComplete) {
     return (
       <div style={{
         backgroundColor: "#F25533",
-        width: ${SCREEN_WIDTH}px,
-        height: ${SCREEN_HEIGHT}px,
+        width: `${SCREEN_WIDTH}px`,
+        height: `${SCREEN_HEIGHT}px`,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -296,8 +345,11 @@ function PagerTron() {
         fontFamily: "'Press Start 2P', cursive",
         border: "5px solid white",
         overflow: "hidden",
+        margin: "auto",
+        position: "relative",
         padding: "20px"
       }}>
+        <GameMusic isGameStarted={false} isGameOver={true} />
         <img
           src="https://media.licdn.com/dms/image/v2/D4E0BAQFJhMcjf87eCA/company-logo_200_200/company-logo_200_200/0/1709897084853/incident_io_logo?e=2147483647&v=beta&t=YhaUWh2pX9QqQKlHsXxEjzyd6KCbH5ntKRAJ6fx2SP4"
           alt="Incident.io Logo"
@@ -315,31 +367,59 @@ function PagerTron() {
           all-in-one incident management
         </div>
         <div style={{ fontSize: "32px", marginTop: "10px" }}>
-          <a 
-            href="https://incident.io" 
-            target="_blank" 
+          <a
+            href="https://incident.io"
+            target="_blank"
             rel="noopener noreferrer"
             style={{ color: "white", textDecoration: "underline" }}
           >
             get started at incident.io
           </a>
         </div>
+
+        <button
+          onClick={resetGame}
+          style={{
+            marginTop: "30px",
+            padding: "15px 30px",
+            fontSize: "24px",
+            fontFamily: "'Press Start 2P', cursive",
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            color: "white",
+            border: "3px solid white",
+            borderRadius: "5px",
+            cursor: "pointer",
+            boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
+            transition: "all 0.2s ease",
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+            e.currentTarget.style.transform = "scale(1.05)";
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          PLAY AGAIN
+        </button>
       </div>
     );
   }
 
   // --- Regular Game Rendering ---
   return (
-    <div style={{ 
+    <div style={{
       backgroundColor: "#F25533",
       color: "white",
-      width: ${SCREEN_WIDTH}px,
-      height: ${SCREEN_HEIGHT}px,
+      width: `${SCREEN_WIDTH}px`,
+      height: `${SCREEN_HEIGHT}px`,
       position: "relative",
       margin: "auto",
       border: "5px solid white",
       overflow: "hidden"
     }}>
+      <GameMusic isGameStarted={gameStarted} isGameOver={gameOver} />
       {/* Background Text Overlay */}
       <div style={{
         position: "absolute",
@@ -373,22 +453,37 @@ function PagerTron() {
 
       {/* Press Spacebar to Start Overlay */}
       {!gameStarted && !gameOver && (
-        <div style={{
-          position: "absolute",
-          bottom: "20%",
-          width: "100%",
-          textAlign: "center",
-          fontFamily: "'Press Start 2P', cursive",
-          fontSize: "24px",
-          color: "white",
-          textShadow: "2px 2px 0px #000",
-          zIndex: 5,
-        }}>
-          Press Spacebar to Start
-        </div>
+        <>
+          <div style={{
+            position: "absolute",
+            bottom: "20%",
+            width: "100%",
+            textAlign: "center",
+            fontFamily: "'Press Start 2P', cursive",
+            fontSize: "24px",
+            color: "white",
+            textShadow: "2px 2px 0px #000",
+            zIndex: 5,
+          }}>
+            <div style={{
+              animation: "pulse 1s infinite alternate",
+              textShadow: "0 0 5px #ff00ff, 0 0 10px #00ffff"
+            }}>
+              Press Spacebar to Start
+            </div>
+            <div className="insert-coin" style={{
+              fontSize: "16px",
+              marginTop: "15px",
+              animation: "blink 1s step-end infinite"
+            }}>
+              INSERT COIN
+            </div>
+          </div>
+          <HighScoreTicker />
+        </>
       )}
 
-      {/* Score Counter */}
+      {/* Score Counter - arcade scoreboard style */}
       {gameStarted && (
         <div style={{
           position: "absolute",
@@ -396,18 +491,22 @@ function PagerTron() {
           left: "10px",
           fontSize: "24px",
           fontFamily: "'Press Start 2P', cursive",
-          color: "white",
-          textShadow: "2px 2px 0px #000",
+          color: "#ffff00",
+          textShadow: "0 0 5px #ff8800, 2px 2px 0px #000",
           opacity: isTransitioning ? 0 : 1,
           transition: "opacity 0.3s",
           zIndex: 1,
-          whiteSpace: "nowrap"
+          whiteSpace: "nowrap",
+          backgroundColor: "rgba(0,0,0,0.5)",
+          padding: "5px 10px",
+          borderRight: "2px solid #ff00ff",
+          borderBottom: "2px solid #00ffff"
         }}>
-          Score: {score}
+          SCORE: {score}
         </div>
       )}
 
-      {/* Level Counter */}
+      {/* Level Counter - 80s arcade cabinet style */}
       {gameStarted && (
         <div style={{
           position: "absolute",
@@ -415,14 +514,18 @@ function PagerTron() {
           right: "10px",
           fontSize: "24px",
           fontFamily: "'Press Start 2P', cursive",
-          color: "white",
-          textShadow: "2px 2px 0px #000",
+          color: "#88ff88",
+          textShadow: "0 0 5px #00ff00, 2px 2px 0px #000",
           opacity: isTransitioning ? 0 : 1,
           transition: "opacity 0.3s",
           zIndex: 1,
-          whiteSpace: "nowrap"
+          whiteSpace: "nowrap",
+          backgroundColor: "rgba(0,0,0,0.5)",
+          padding: "5px 10px",
+          borderLeft: "2px solid #00ffff",
+          borderBottom: "2px solid #ff00ff"
         }}>
-          Level: {level}
+          LEVEL: {level}
         </div>
       )}
 
@@ -467,7 +570,7 @@ function PagerTron() {
         </div>
       )}
 
-      {/* Transition Screen */}
+      {/* Transition Screen - full 80s arcade effect */}
       {isTransitioning && (
         <div style={{
           position: "absolute",
@@ -480,41 +583,96 @@ function PagerTron() {
           justifyContent: "center",
           alignItems: "center",
           flexDirection: "column",
-          animation: "pulse 0.5s infinite alternate",
-          zIndex: 2
+          animation: "pulse 0.5s infinite alternate, crt-flicker 0.5s linear forwards",
+          zIndex: 2,
+          overflow: "hidden"
         }}>
+          {/* Scanline effect */}
+          <div style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundImage: "linear-gradient(0deg, rgba(0,0,0,0.2) 50%, transparent 50%)",
+            backgroundSize: "100% 4px",
+            zIndex: 3,
+            pointerEvents: "none",
+            opacity: 0.3
+          }}></div>
+
+          {/* Level text */}
           <div style={{
             fontSize: "64px",
             fontFamily: "'Press Start 2P', cursive",
             color: "#00ff00",
             textShadow: "0 0 10px #00ff00, 0 0 20px #ff00ff, 0 0 30px #ff00ff",
+            transform: "scale(1, 1.2)",
+            animation: "pixel-shift 0.5s step-end infinite"
           }}>
-            Level {level + 1}
+            LEVEL {level + 1}
           </div>
+
+          {/* Get ready text */}
           <div style={{
             fontSize: "24px",
             fontFamily: "'Press Start 2P', cursive",
             color: "#ffffff",
-            textShadow: "0 0 5px #ffffff",
-            marginTop: "20px"
+            textShadow: "0 0 5px #ffffff, 0 0 10px #00ffff",
+            marginTop: "20px",
+            animation: "blink 0.5s step-end infinite"
           }}>
-            Get Ready!
+            GET READY!
           </div>
+
+          {/* Typical 80s patterns */}
+          <div style={{
+            position: "absolute",
+            bottom: "50px",
+            width: "80%",
+            height: "20px",
+            background: "repeating-linear-gradient(90deg, #ff00ff, #ff00ff 10px, #00ffff 10px, #00ffff 20px)",
+            zIndex: 1
+          }}></div>
         </div>
       )}
 
-      {/* Game Over Screen */}
+      {/* Game Over Screen - authentic 80s arcade cabinet style */}
       {gameOver && !finaleActive && (
         <div style={{
           position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          fontSize: "64px",
-          fontFamily: "'Press Start 2P', cursive",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+          backgroundColor: "rgba(0, 0, 0, 0.7)",
           zIndex: 2
         }}>
-          Game Over
+          <div style={{
+            fontSize: "64px",
+            fontFamily: "'Press Start 2P', cursive",
+            color: "#ff0000",
+            textShadow: "0 0 15px #ff0000, 0 0 25px #ff0000",
+            animation: "pulse 0.5s infinite alternate",
+            letterSpacing: "2px",
+            transform: "scaleY(1.2)",
+            marginBottom: "20px"
+          }}>
+            GAME OVER
+          </div>
+          <div style={{
+            fontSize: "20px",
+            fontFamily: "'Press Start 2P', cursive",
+            color: "#ffff00",
+            animation: "blink 1s step-end infinite",
+            marginTop: "30px"
+          }}>
+            CONTINUE? 9...8...7...
+          </div>
         </div>
       )}
 
@@ -539,12 +697,13 @@ function PagerTron() {
               key={index}
               style={{
                 position: "absolute",
-                width: ${MISSILE_SIZE}px,
-                height: ${MISSILE_SIZE}px,
-                left: ${missile.x}px,
-                top: ${missile.y}px,
+                width: `${KONAMI_MISSILE_SIZE}px`,
+                height: `${KONAMI_MISSILE_SIZE}px`,
+                left: `${missile.x - (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2}px`,
+                top: `${missile.y - (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2}px`,
                 textAlign: "center",
-                lineHeight: ${MISSILE_SIZE}px,
+                lineHeight: `${KONAMI_MISSILE_SIZE}px`,
+                fontSize: "100px",
                 zIndex: 11,
               }}
             >
@@ -560,11 +719,11 @@ function PagerTron() {
           className="absolute w-12 h-12"
           style={{
             position: "absolute",
-            width: ${PLAYER_SIZE}px,
-            height: ${PLAYER_SIZE}px,
+            width: `${PLAYER_SIZE}px`,
+            height: `${PLAYER_SIZE}px`,
             fontSize: "40px",
-            left: ${player.x}px,
-            top: ${player.y}px,
+            left: `${player.x}px`,
+            top: `${player.y}px`,
             opacity: isTransitioning ? 0 : 1,
             transition: "opacity 0.3s",
             zIndex: 1
@@ -581,11 +740,11 @@ function PagerTron() {
           className="absolute w-12 h-12"
           style={{
             position: "absolute",
-            width: ${PAGER_SIZE}px,
-            height: ${PAGER_SIZE}px,
+            width: `${PAGER_SIZE}px`,
+            height: `${PAGER_SIZE}px`,
             fontSize: "40px",
-            left: ${pager.x}px,
-            top: ${pager.y}px,
+            left: `${pager.x}px`,
+            top: `${pager.y}px`,
             opacity: isTransitioning ? 0 : 1,
             transition: "opacity 0.3s",
             zIndex: 1
@@ -602,13 +761,13 @@ function PagerTron() {
           className="absolute"
           style={{
             position: "absolute",
-            width: ${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px,
-            height: ${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px,
-            fontSize: ${konamiActive ? 100 : 20}px,
-            left: ${missile.x - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px,
-            top: ${missile.y - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px,
+            width: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
+            height: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
+            fontSize: `${konamiActive ? 100 : 20}px`,
+            left: `${missile.x - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px`,
+            top: `${missile.y - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px`,
             textAlign: "center",
-            lineHeight: ${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px,
+            lineHeight: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
