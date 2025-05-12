@@ -75,6 +75,7 @@ function PagerTron() {
   // finalComplete becomes true after a 5-second delay once finaleActive is triggered.
   const [finalComplete, setFinalComplete] = useState(false);
   const [finalMissiles, setFinalMissiles] = useState([]);
+  const [explosions, setExplosions] = useState([]);
   const [showHighScoreModal, setShowHighScoreModal] = useState(false);
 
   const konamiCode = [
@@ -183,7 +184,12 @@ function PagerTron() {
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (!gameStarted) {
-        if (event.key === " ") setGameStarted(true);
+        if (event.key === " ") {
+          setGameStarted(true);
+
+          // Force a user interaction to help with audio context
+          document.body.click();
+        }
         return;
       }
       if (gameOver || isTransitioning) return;
@@ -199,10 +205,21 @@ function PagerTron() {
         return { x: newX, y: newY, direction: newDirection };
       });
       if (event.key === " ") {
-        setMissiles(prev => [
-          ...prev,
-          { x: player.x + PLAYER_SIZE / 2, y: player.y, direction: player.direction }
-        ]);
+        setMissiles(prev => {
+          // Calculate the center of the player
+          const centerX = player.x + PLAYER_SIZE / 2;
+          const centerY = player.y + PLAYER_SIZE / 2;
+
+          // Adjust the starting position based on direction
+          let missileX = centerX;
+          let missileY = centerY;
+
+          // Add the missile with centered coordinates
+          return [
+            ...prev,
+            { x: missileX, y: missileY, direction: player.direction }
+          ];
+        });
       }
       const key = event.key;
       setKonamiInput(prev => {
@@ -223,66 +240,211 @@ function PagerTron() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [gameStarted, player, gameOver, isTransitioning, konamiCode]);
 
-  // When the player dies, wait 3 seconds then trigger the finale effect.
+  // When the player dies, trigger the finale effect immediately
   useEffect(() => {
     if (gameOver) {
-      const timer = setTimeout(() => setFinaleActive(true), 3000);
+      // Use a shorter delay (only 1 second) before starting the finale
+      const timer = setTimeout(() => {
+        // Clear regular missiles when finale begins
+        setMissiles([]);
+        setFinaleActive(true);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [gameOver]);
 
-  // Finale: Spawn one missile per remaining pager simultaneously.
+  // Finale: Launch missiles in all directions to clear the entire screen
   useEffect(() => {
     if (finaleActive) {
+      // Store pager positions before clearing them for explosion effects
+      const pagerPositions = pagers.map(pager => ({ x: pager.x, y: pager.y, id: pager.id }));
+
+      // Force clear all pagers immediately to ensure clean wipe effect
+      // We'll still create explosions at their last positions
+      setTimeout(() => setPagers([]), 100);
+
       const logoCenter = { x: 640, y: 360 };
-      setFinalMissiles(
-        pagers.map(target => {
-          const dx = target.x - logoCenter.x;
-          const dy = target.y - logoCenter.y;
+      const missiles = [];
+
+      // Create missiles targeting where pagers were (using stored positions)
+      pagerPositions.forEach(target => {
+        const dx = target.x - logoCenter.x;
+        const dy = target.y - logoCenter.y;
+        const mag = Math.sqrt(dx * dx + dy * dy);
+        missiles.push({
+          x: logoCenter.x,
+          y: logoCenter.y,
+          dx: dx / mag,
+          dy: dy / mag,
+          targetId: target.id
+        });
+      });
+
+      // Add missiles in a very dense grid pattern to cover the entire screen quickly
+      const gridSize = 16; // 16x16 grid = 256 additional missiles for a faster, more thorough screen wipe
+      for (let i = 0; i < gridSize; i++) {
+        for (let j = 0; j < gridSize; j++) {
+          // Calculate target positions across the screen
+          const targetX = (SCREEN_WIDTH * (i + 0.5)) / gridSize;
+          const targetY = (SCREEN_HEIGHT * (j + 0.5)) / gridSize;
+
+          const dx = targetX - logoCenter.x;
+          const dy = targetY - logoCenter.y;
           const mag = Math.sqrt(dx * dx + dy * dy);
-          return { x: logoCenter.x, y: logoCenter.y, dx: dx / mag, dy: dy / mag, targetId: target.id };
-        })
-      );
+
+          // Only add if this is a new direction (avoid duplicates)
+          if (mag > 10) { // Avoid center point
+            missiles.push({
+              x: logoCenter.x,
+              y: logoCenter.y,
+              dx: dx / mag,
+              dy: dy / mag
+            });
+          }
+        }
+      }
+
+      setFinalMissiles(missiles);
     }
   }, [finaleActive]);
 
-  // Finale: Update final missiles and check for collisions with pagers.
+  // Finale: Update final missiles and clear the screen with explosive effects
   useEffect(() => {
     if (!finaleActive) return;
+
     const updateInterval = setInterval(() => {
+      // Update missile positions
       setFinalMissiles(prevMissiles => {
         const newMissiles = prevMissiles.map(missile => ({
           ...missile,
-          x: missile.x + missile.dx * 20,
-          y: missile.y + missile.dy * 20,
+          x: missile.x + missile.dx * 35, // Faster missile speed
+          y: missile.y + missile.dy * 35, // Faster missile speed
         }));
+
+        // Check for missiles that are now out of bounds
+        const outOfBoundsMissiles = newMissiles.filter(missile =>
+          missile.x < 0 || missile.x > SCREEN_WIDTH ||
+          missile.y < 0 || missile.y > SCREEN_HEIGHT
+        );
+
+        // Create explosions at the positions of missiles that went out of bounds
+        if (outOfBoundsMissiles.length > 0) {
+          // Create multiple explosions for each out-of-bounds missile
+          outOfBoundsMissiles.forEach(missile => {
+            const baseX = Math.max(0, Math.min(SCREEN_WIDTH, missile.x));
+            const baseY = Math.max(0, Math.min(SCREEN_HEIGHT, missile.y));
+
+            // Add 2-3 explosions per missile for a faster but still dramatic effect
+            const explosionCount = Math.floor(Math.random() * 2) + 2;
+            for (let i = 0; i < explosionCount; i++) {
+              setExplosions(prev => [
+                ...prev,
+                {
+                  x: baseX + (Math.random() * 60 - 30),
+                  y: baseY + (Math.random() * 60 - 30),
+                  size: Math.random() * 120 + 40,
+                  createdAt: Date.now() + (i * 40) // Faster stagger timing
+                }
+              ]);
+            }
+          });
+
+          // Add some random explosions elsewhere on screen for dramatic effect
+          if (Math.random() < 0.3) { // 30% chance each update
+            const randomX = Math.random() * SCREEN_WIDTH;
+            const randomY = Math.random() * SCREEN_HEIGHT;
+            setExplosions(prev => [
+              ...prev,
+              {
+                x: randomX,
+                y: randomY,
+                size: Math.random() * 150 + 50,
+                createdAt: Date.now()
+              }
+            ]);
+          }
+        }
+
+        // Keep only missiles that are still on screen
         return newMissiles.filter(missile =>
           missile.x >= 0 && missile.x <= SCREEN_WIDTH &&
           missile.y >= 0 && missile.y <= SCREEN_HEIGHT
         );
       });
-      setPagers(prevPagers =>
-        prevPagers.filter(pager => {
-          return !finalMissiles.some(missile => {
-            const distance = Math.sqrt((missile.x - pager.x) ** 2 + (missile.y - pager.y) ** 2);
-            return distance < KONAMI_MISSILE_SIZE / 2;
-          });
-        })
-      );
-    }, 50);
-    return () => clearInterval(updateInterval);
-  }, [finaleActive, finalMissiles]);
 
-  // When gameOver and finaleActive are true, wait an additional 5 seconds then show final text.
+      // Clear all pagers with dramatic explosions
+      setPagers(prevPagers => {
+        // If we have missiles in motion and pagers remaining
+        if (finalMissiles.length > 0 && prevPagers.length > 0) {
+          // Create explosions for all remaining pagers
+          prevPagers.forEach(pager => {
+            // Add multiple explosions per pager for a more dramatic effect
+            for (let i = 0; i < 3; i++) {
+              setExplosions(prev => [
+                ...prev,
+                {
+                  x: pager.x + (Math.random() * 30 - 15),
+                  y: pager.y + (Math.random() * 30 - 15),
+                  size: Math.random() * 100 + 50,
+                  createdAt: Date.now() + (i * 100) // Stagger explosion timing
+                }
+              ]);
+            }
+          });
+
+          // Destroy all pagers regardless of missile proximity
+          // This ensures the screen is completely cleared during the finale
+          const remainingPagers = [];
+
+          return remainingPagers;
+        }
+        return prevPagers;
+      });
+
+      // Remove old explosions
+      setExplosions(prev =>
+        prev.filter(explosion => Date.now() - explosion.createdAt < 700) // Shorter explosion duration
+      );
+
+    }, 50);
+
+    return () => clearInterval(updateInterval);
+  }, [finaleActive, SCREEN_WIDTH, SCREEN_HEIGHT, KONAMI_MISSILE_SIZE]);
+
+  // When gameOver and finaleActive are true, use a much shorter finale effect and skip to final screen
   useEffect(() => {
     if (gameOver && finaleActive) {
+      // Use a much shorter time for the screen clearing effect
       const timer = setTimeout(() => {
-        setFinaleActive(false);
-        setShowHighScoreModal(true); // First show high score modal
-      }, 5000);
+        // Create one final massive explosion effect before transitioning
+        const centerX = SCREEN_WIDTH / 2;
+        const centerY = SCREEN_HEIGHT / 2;
+
+        // Add a final burst of explosions
+        for (let i = 0; i < 15; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const distance = Math.random() * 200;
+          setExplosions(prev => [
+            ...prev,
+            {
+              x: centerX + Math.cos(angle) * distance,
+              y: centerY + Math.sin(angle) * distance,
+              size: Math.random() * 200 + 100,
+              createdAt: Date.now() + (i * 50) // Shorter stagger between explosions
+            }
+          ]);
+        }
+
+        // Show high score modal after finale effect
+        setTimeout(() => {
+          setFinaleActive(false);
+          setShowHighScoreModal(true); // Show high score modal first
+        }, 500);
+      }, 2500);
+
       return () => clearTimeout(timer);
     }
-  }, [gameOver, finaleActive]);
+  }, [gameOver, finaleActive, SCREEN_WIDTH, SCREEN_HEIGHT]);
 
   const handleCloseHighScoreModal = () => {
     setShowHighScoreModal(false);
@@ -304,6 +466,7 @@ function PagerTron() {
     setFinaleActive(false);
     setFinalComplete(false);
     setFinalMissiles([]);
+    setExplosions([]);
     setKonamiInput([]);
   };
 
@@ -664,15 +827,6 @@ function PagerTron() {
           }}>
             GAME OVER
           </div>
-          <div style={{
-            fontSize: "20px",
-            fontFamily: "'Press Start 2P', cursive",
-            color: "#ffff00",
-            animation: "blink 1s step-end infinite",
-            marginTop: "30px"
-          }}>
-            CONTINUE? 9...8...7...
-          </div>
         </div>
       )}
 
@@ -692,6 +846,33 @@ function PagerTron() {
               height: "200px"
             }}
           />
+          {/* Render explosions */}
+          {explosions.map((explosion, i) => (
+            <div
+              key={`explosion-${i}`}
+              style={{
+                position: "absolute",
+                width: `${explosion.size}px`,
+                height: `${explosion.size}px`,
+                left: `${explosion.x - explosion.size / 2}px`,
+                top: `${explosion.y - explosion.size / 2}px`,
+                borderRadius: "50%",
+                background: Math.random() > 0.3
+                  ? "radial-gradient(circle, #ffff00 0%, #ff8800 40%, transparent 70%)"
+                  : Math.random() > 0.5
+                  ? "radial-gradient(circle, #00ffff 0%, #ff00ff 40%, transparent 70%)"
+                  : "radial-gradient(circle, #88ff88 0%, #ff00ff 40%, transparent 70%)",
+                boxShadow: "0 0 30px #ff00ff, 0 0 15px #ffff00",
+                filter: "blur(2px)",
+                opacity: 1 - (Date.now() - explosion.createdAt) / 1000,
+                zIndex: 12,
+                transform: `rotate(${Math.random() * 360}deg)`,
+                animation: `pulse ${0.2 + Math.random() * 0.4}s infinite alternate`
+              }}
+            />
+          ))}
+
+          {/* Render finale missiles */}
           {finalMissiles.map((missile, index) => (
             <div
               key={index}
@@ -699,15 +880,44 @@ function PagerTron() {
                 position: "absolute",
                 width: `${KONAMI_MISSILE_SIZE}px`,
                 height: `${KONAMI_MISSILE_SIZE}px`,
-                left: `${missile.x - (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2}px`,
-                top: `${missile.y - (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2}px`,
-                textAlign: "center",
-                lineHeight: `${KONAMI_MISSILE_SIZE}px`,
-                fontSize: "100px",
+                left: `${missile.x - KONAMI_MISSILE_SIZE / 2}px`,
+                top: `${missile.y - KONAMI_MISSILE_SIZE / 2}px`,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
                 zIndex: 11,
+                animation: "pulse 0.5s infinite alternate"
               }}
             >
-              <span>🔥</span>
+              <div style={{
+                fontSize: "60px",
+                lineHeight: 1,
+                filter: "drop-shadow(0 0 8px #ff8800)",
+                position: "relative"
+              }}>
+                🔥💥
+                {/* Add missile trail effect */}
+                <div style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: `rotate(${Math.atan2(missile.dy, missile.dx) * 180 / Math.PI}deg)`,
+                  width: "200%",
+                  height: "100%",
+                  opacity: 0.7,
+                  filter: "blur(2px)",
+                  pointerEvents: "none"
+                }}>
+                  <span style={{
+                    position: "absolute",
+                    right: "100%",
+                    fontSize: "40px",
+                    color: "#ffff00"
+                  }}>
+                    ✨✨✨
+                  </span>
+                </div>
+              </div>
             </div>
           ))}
         </>
@@ -716,25 +926,37 @@ function PagerTron() {
       {/* Player: Only shown if game is started and not over */}
       {gameStarted && !gameOver && (
         <div
-          className="absolute w-12 h-12"
           style={{
             position: "absolute",
             width: `${PLAYER_SIZE}px`,
             height: `${PLAYER_SIZE}px`,
-            fontSize: "40px",
             left: `${player.x}px`,
             top: `${player.y}px`,
             opacity: isTransitioning ? 0 : 1,
             transition: "opacity 0.3s",
-            zIndex: 1
+            zIndex: 5,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            filter: "drop-shadow(0 0 5px #ff3300)",
+            animation: "pulse 1s infinite alternate"
           }}
         >
-          🔥
+          <div style={{
+            fontSize: "40px",
+            lineHeight: 1,
+            transform: player.direction === "left" ? "rotate(-90deg)" :
+                      player.direction === "right" ? "rotate(90deg)" :
+                      player.direction === "down" ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s ease"
+          }}>
+            🔥
+          </div>
         </div>
       )}
 
-      {/* Pagers */}
-      {gameStarted && pagers.map(pager => (
+      {/* Pagers - only show when game is in progress (not game over or finale) */}
+      {gameStarted && !gameOver && !finaleActive && pagers.map(pager => (
         <div
           key={pager.id}
           className="absolute w-12 h-12"
@@ -754,29 +976,62 @@ function PagerTron() {
         </div>
       ))}
 
-      {/* Missiles */}
-      {gameStarted && missiles.map((missile, index) => (
+      {/* Missiles - 80s arcade style projectiles - only show during normal gameplay */}
+      {gameStarted && !finaleActive && missiles.map((missile, index) => (
         <div
           key={index}
-          className="absolute"
           style={{
             position: "absolute",
             width: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
             height: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
-            fontSize: `${konamiActive ? 100 : 20}px`,
-            left: `${missile.x - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px`,
-            top: `${missile.y - (konamiActive ? (KONAMI_MISSILE_SIZE - MISSILE_SIZE) / 2 : 0)}px`,
-            textAlign: "center",
-            lineHeight: `${konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE}px`,
+            // Center the missile by offsetting half the missile size
+            left: `${missile.x - (konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE) / 2}px`,
+            top: `${missile.y - (konamiActive ? KONAMI_MISSILE_SIZE : MISSILE_SIZE) / 2}px`,
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
             opacity: isTransitioning ? 0 : 1,
-            transition: "opacity 0.3s, width 0.3s, height 0.3s, font-size 0.3s",
-            zIndex: 1
+            transition: "opacity 0.3s",
+            zIndex: 3,
+            transform: missile.direction === "left" || missile.direction === "right"
+              ? "rotate(90deg)"
+              : (missile.direction === "down" ? "rotate(180deg)" : "rotate(0deg)"),
+            animation: konamiActive
+              ? "pulse 0.5s infinite alternate"
+              : undefined
           }}
         >
-          <span>🔥❤️</span>
+          <div style={{
+            fontSize: `${konamiActive ? 60 : 24}px`,
+            lineHeight: 1,
+            filter: "drop-shadow(0 0 5px #ff8800)",
+            // Add trail effect for missiles
+            position: "relative"
+          }}>
+            {konamiActive ? "🔥💥" : "🔥"}
+            {/* Improved missile trail effect that works in all directions */}
+            <div style={{
+              position: "absolute",
+              opacity: 0.7,
+              filter: "blur(2px)",
+              fontSize: `${konamiActive ? 30 : 15}px`,
+              color: "#ffff00",
+              textAlign: "center",
+              // Position the trail behind the missile based on its direction of travel
+              // This ensures trails always appear to follow the missile correctly
+              ...( missile.direction === "up"
+                  ? { bottom: "100%", left: "0", width: "100%" }
+                  : missile.direction === "down"
+                  ? { top: "100%", left: "0", width: "100%" }
+                  : missile.direction === "left"
+                  ? { right: "100%", top: "0", height: "100%", display: "flex", alignItems: "center", justifyContent: "flex-end" }
+                  : { left: "100%", top: "0", height: "100%", display: "flex", alignItems: "center", justifyContent: "flex-start" }
+              )
+            }}>
+              {/* Add multiple sparkles for Konami mode */}
+              {konamiActive ? "✨✨✨" : "✨"}
+            </div>
+          </div>
         </div>
       ))}
     </div>
