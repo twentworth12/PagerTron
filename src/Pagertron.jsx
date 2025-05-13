@@ -820,7 +820,7 @@ function PagerTron() {
           color: "rgba(255, 255, 255, 0.6)",
           marginTop: "-10px"
         }}>
-          by incident.io
+          vibe coded by incident.io
         </div>
       </div>
 
